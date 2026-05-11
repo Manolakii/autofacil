@@ -1,0 +1,115 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Helpers ---
+    function isSignedIn() { return request.auth != null; }
+    function isValidId(id) { return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+    function isOwner(uid) { return isSignedIn() && request.auth.uid == uid; }
+    function isAdmin() { 
+      return isSignedIn() && (
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
+        request.auth.token.email == "manufigna5@gmail.com"
+      ); 
+    }
+    function isActive() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.status == "active";
+    }
+
+    // --- Validation Helpers ---
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['username', 'email', 'role', 'status', 'createdAt']) &&
+             data.keys().size() == 5 &&
+             data.username is string && data.username.size() >= 3 && data.username.size() <= 50 &&
+             data.email == request.auth.token.email &&
+             data.role in ['client', 'seller'] &&
+             data.status == "active" &&
+             data.createdAt == request.time;
+    }
+
+    function isValidCar(data) {
+      return data.keys().hasAll(['sellerId', 'brand', 'model', 'year', 'mileage', 'transmission', 'fuel', 'color', 'doors', 'price', 'currency', 'condition', 'images', 'status', 'createdAt', 'updatedAt']) &&
+             data.sellerId == request.auth.uid &&
+             data.year >= 1900 && data.year <= 2100 &&
+             data.price >= 0 &&
+             data.status in ['available', 'reserved', 'sold'] &&
+             data.createdAt == (resource == null ? request.time : resource.data.createdAt) &&
+             data.updatedAt == request.time &&
+             data.images is list && data.images.size() <= 10;
+    }
+
+    function isValidReservation(data, carId) {
+      return data.keys().hasAll(['carId', 'clientId', 'createdAt', 'expiresAt', 'status']) &&
+             data.carId == carId &&
+             data.clientId == request.auth.uid &&
+             data.createdAt == request.time &&
+             data.expiresAt > request.time &&
+             data.status == "active";
+    }
+
+    // --- Collection Rules ---
+
+    match /users/{userId} {
+      allow get: if isSignedIn();
+      allow list: if isAdmin();
+      allow create: if isSignedIn() && userId == request.auth.uid && isValidUser(incoming());
+      allow update: if isSignedIn() && (
+        isAdmin() || 
+        (userId == request.auth.uid && 
+         incoming().diff(existing()).affectedKeys().hasOnly(['username']) &&
+         incoming().username is string && incoming().username.size() >= 3)
+      );
+    }
+
+    match /cars/{carId} {
+      allow read: if true;
+      allow create: if isSignedIn() && isActive() && isValidCar(incoming());
+      allow update: if isSignedIn() && isActive() && (
+        isAdmin() ||
+        (existing().sellerId == request.auth.uid && isValidCar(incoming())) ||
+        // State update by Client (Reservation)
+        (incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt']) &&
+         existing().status == "available" &&
+         incoming().status == "reserved")
+      );
+      allow delete: if isAdmin() || (isSignedIn() && existing().sellerId == request.auth.uid);
+
+      match /reservations/{resId} {
+        allow read: if isSignedIn() && (isAdmin() || resource.data.clientId == request.auth.uid || get(/databases/$(database)/documents/cars/$(carId)).data.sellerId == request.auth.uid);
+        allow create: if isSignedIn() && isActive() && isValidReservation(incoming(), carId) &&
+                        get(/databases/$(database)/documents/cars/$(carId)).data.status == "available";
+        allow update: if isSignedIn() && (
+          isAdmin() || 
+          (resource.data.clientId == request.auth.uid && incoming().diff(existing()).affectedKeys().hasOnly(['status']) && incoming().status in ['cancelled', 'completed'])
+        );
+      }
+    }
+
+    match /reviews/{reviewId} {
+      allow read: if true;
+      allow create: if isSignedIn() && isActive() && 
+                      incoming().clientId == request.auth.uid && 
+                      incoming().rating >= 1 && incoming().rating <= 5 &&
+                      incoming().createdAt == request.time;
+      allow delete: if isAdmin() || (isSignedIn() && resource.data.clientId == request.auth.uid);
+    }
+
+    match /users/{userId}/favorites/{favId} {
+      allow read, write: if isOwner(userId);
+    }
+    
+    // Explicit Admin collection check
+    match /admins/{adminId} {
+      allow read: if isSignedIn();
+      allow write: if false; // System managed or manual override
+    }
+  }
+}
