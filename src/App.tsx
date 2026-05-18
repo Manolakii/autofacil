@@ -6,6 +6,7 @@ import { Navbar } from './components/Navbar';
 import Home from './pages/Home';
 import Models from './pages/Models';
 import Login from './pages/Login';
+import Register from './pages/Register';
 import CarDetail from './pages/CarDetail';
 import SellerDashboard from './pages/SellerDashboard';
 
@@ -21,6 +22,7 @@ export default function App() {
                 <Route path="/" element={<Home />} />
                 <Route path="/models" element={<Models />} />
                 <Route path="/login" element={<Login />} />
+                <Route path="/register" element={<Register />} />
                 <Route path="/cars/:id" element={<CarDetail />} />
                 <Route path="/dashboard" element={<SellerDashboard />} />
               </Routes>

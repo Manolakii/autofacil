@@ -28,8 +28,8 @@ service cloud.firestore {
     function isValidUser(data) {
       return data.keys().hasAll(['username', 'email', 'role', 'status', 'createdAt']) &&
              data.keys().size() == 5 &&
-             data.username is string && data.username.size() >= 3 && data.username.size() <= 50 &&
-             data.email == request.auth.token.email &&
+             data.username is string && data.username.size() >= 1 && data.username.size() <= 50 &&
+             data.email is string && data.email.size() <= 100 &&
              data.role in ['client', 'seller'] &&
              data.status == "active" &&
              data.createdAt == request.time;

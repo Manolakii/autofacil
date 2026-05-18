@@ -43,7 +43,7 @@ const Home: React.FC = () => {
   return (
     <div className="flex flex-col gap-16 pb-20">
       {/* Hero Section */}
-      <section className="relative flex min-h-[70vh] flex-col items-center justify-center overflow-hidden bg-brand-bg px-4 text-center text-brand-text border-b border-brand-border">
+      <section className="relative flex min-h-[60vh] sm:min-h-[70vh] flex-col items-center justify-center overflow-hidden bg-brand-bg px-4 py-12 text-center text-brand-text border-b border-brand-border">
         <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?auto=format&fit=crop&q=80&w=2000')] bg-cover bg-center bg-no-repeat opacity-20"></div>
         <div className="absolute inset-0 bg-gradient-to-t from-brand-bg via-transparent to-transparent"></div>
         
@@ -52,27 +52,27 @@ const Home: React.FC = () => {
           animate={{ opacity: 1, y: 0 }}
           className="relative z-10 max-w-4xl"
         >
-          <span className="mb-4 inline-block rounded-full bg-brand-primary/20 px-4 py-1.5 text-sm font-semibold text-brand-primary border border-brand-primary/30">
+          <span className="mb-4 inline-block rounded-full bg-brand-primary/20 px-4 py-1.5 text-[10px] sm:text-sm font-semibold text-brand-primary border border-brand-primary/30 uppercase tracking-widest">
             Bienvenido a Auto Fácil
           </span>
-          <h1 className="mb-6 text-5xl font-black tracking-tight sm:text-7xl">
-            Tu próximo auto <br/> <span className="text-brand-primary">sin complicaciones.</span>
+          <h1 className="mb-6 text-4xl font-black tracking-tight sm:text-6xl lg:text-7xl">
+            Tu próximo auto <br className="hidden sm:block"/> <span className="text-brand-primary">sin complicaciones.</span>
           </h1>
-          <p className="mx-auto mb-10 max-w-2xl text-lg text-brand-muted">
+          <p className="mx-auto mb-10 max-w-2xl text-base sm:text-lg text-brand-muted px-4">
             La plataforma más confiable para comprar y vender vehículos. Tasaciones reales, reservas rápidas y comunicación directa.
           </p>
 
-          <div className="mx-auto flex w-full max-w-2xl flex-col items-center gap-4 sm:flex-row">
+          <div className="mx-auto flex w-full max-w-2xl flex-col items-center gap-4 sm:flex-row px-4">
             <div className="relative w-full">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-brand-muted" size={20} />
               <input 
                 type="text" 
-                placeholder="Busca por marca, modelo o año..."
+                placeholder="Marca, modelo o año..."
                 className="h-14 w-full rounded-2xl border-none bg-brand-card/50 px-12 py-4 text-brand-text backdrop-blur-md outline-none ring-1 ring-brand-border focus:bg-brand-card focus:ring-brand-primary transition-all"
               />
             </div>
-            <button className="h-14 w-full rounded-2xl bg-brand-primary px-8 py-4 font-bold text-white shadow-lg shadow-brand-primary/20 transition-all hover:bg-blue-500 sm:w-auto">
-              Buscar
+            <button className="h-14 w-full rounded-2xl bg-brand-primary px-8 py-4 font-bold text-white shadow-lg shadow-brand-primary/20 transition-all hover:bg-blue-500 sm:w-auto shrink-0">
+              Buscar Ahora
             </button>
           </div>
         </motion.div>
