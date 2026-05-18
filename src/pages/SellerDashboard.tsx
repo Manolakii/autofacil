@@ -7,7 +7,7 @@ import { Plus, Edit2, Trash2, LayoutDashboard, Car, FileText, Calendar, ShieldCh
 import { motion, AnimatePresence } from 'motion/react';
 
 const SellerDashboard: React.FC = () => {
-  const { user, profile } = useAuth();
+  const { user, profile, loading: authLoading } = useAuth();
   const [cars, setCars] = useState<AppCar[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -145,8 +145,25 @@ const SellerDashboard: React.FC = () => {
     }
   };
 
+  if (authLoading) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center bg-brand-bg px-4 py-12 text-center">
+        <div className="w-16 h-16 border-4 border-brand-primary/20 border-t-brand-primary rounded-full animate-spin mb-6 mx-auto"></div>
+        <p className="text-brand-muted font-black text-xs tracking-widest uppercase animate-pulse">Cargando Panel de Vendedor...</p>
+      </div>
+    );
+  }
+
   if (profile?.role !== 'seller' && profile?.role !== 'admin') {
-    return <div className="p-20 text-center text-red-500 font-bold uppercase tracking-widest">Acceso Restringido solo para Vendedores</div>;
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-brand-bg">
+        <div className="text-center">
+          <AlertCircle size={64} className="mx-auto text-red-500 mb-4" />
+          <h1 className="text-2xl font-black uppercase italic">Acceso Restringido</h1>
+          <p className="text-brand-muted mt-2 uppercase text-xs font-black tracking-widest">Solo Vendedores Autorizados</p>
+        </div>
+      </div>
+    );
   }
 
   return (

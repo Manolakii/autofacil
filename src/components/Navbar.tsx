@@ -20,12 +20,12 @@ export const Navbar: React.FC = () => {
             <div className="rounded-lg bg-brand-primary p-1.5 text-white">
               <Car size={24} />
             </div>
-            <span className="text-xl font-bold tracking-tight text-brand-text">Auto Fácil</span>
+            <span className="text-xl font-black tracking-tight text-brand-text uppercase italic underline decoration-brand-primary underline-offset-4 decoration-2">Auto Fácil</span>
           </Link>
           
-          <div className="hidden space-x-6 md:flex">
-            <Link to="/" className="text-sm font-medium text-brand-muted hover:text-brand-primary transform transition-colors">Inicio</Link>
-            <Link to="/models" className="text-sm font-medium text-brand-muted hover:text-brand-primary transform transition-colors">Modelos</Link>
+          <div className="hidden space-x-6 sm:flex">
+            <Link to="/" className="text-sm font-black text-brand-muted hover:text-brand-primary uppercase tracking-widest transition-colors">Inicio</Link>
+            <Link to="/models" className="text-sm font-black text-brand-muted hover:text-brand-primary uppercase tracking-widest transition-colors">Modelos</Link>
           </div>
         </div>
 
@@ -41,7 +41,7 @@ export const Navbar: React.FC = () => {
           {user ? (
             <div className="flex items-center gap-2 sm:gap-4">
               <Link 
-                to={profile?.role === 'seller' ? '/dashboard' : '/my-account'} 
+                to={profile?.role === 'admin' ? '/admin' : profile?.role === 'seller' ? '/dashboard' : '/my-account'} 
                 className="flex items-center gap-2 text-sm font-medium text-brand-text"
                 onClick={closeMenu}
               >
@@ -70,7 +70,7 @@ export const Navbar: React.FC = () => {
           {/* Mobile Menu Button */}
           <button 
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            className="rounded-lg p-2 text-brand-muted hover:bg-brand-card md:hidden"
+            className="rounded-lg p-2 text-brand-muted hover:bg-brand-card sm:hidden"
           >
             {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
           </button>
@@ -84,7 +84,7 @@ export const Navbar: React.FC = () => {
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
-            className="overflow-hidden bg-brand-bg border-b border-brand-border md:hidden"
+            className="overflow-hidden bg-brand-bg border-b border-brand-border sm:hidden"
           >
             <div className="flex flex-col space-y-4 px-4 py-6">
               <Link to="/" className="text-lg font-bold text-brand-text" onClick={closeMenu}>Inicio</Link>
@@ -93,7 +93,7 @@ export const Navbar: React.FC = () => {
               {user ? (
                 <>
                   <Link 
-                    to={profile?.role === 'seller' ? '/dashboard' : '/my-account'} 
+                    to={profile?.role === 'admin' ? '/admin' : profile?.role === 'seller' ? '/dashboard' : '/my-account'} 
                     className="flex items-center gap-3 text-lg font-bold text-brand-text"
                     onClick={closeMenu}
                   >

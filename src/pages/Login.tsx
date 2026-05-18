@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { signInWithGoogle, loginWithEmail } from '../lib/firebase';
+import { signInWithGoogle, loginWithEmail, signUpWithEmail } from '../lib/firebase';
 import { useAuth } from '../components/AuthProvider';
 import { motion } from 'motion/react';
 import { Mail, Lock, LogIn, AlertCircle } from 'lucide-react';
@@ -14,11 +14,14 @@ const Login: React.FC = () => {
   const [loading, setLoading] = useState(false);
 
   React.useEffect(() => {
+    // Only navigate once everything is ready to avoid intermediate state loops
     if (user && profile && !authLoading) {
-      if (profile.role === 'seller' || profile.role === 'admin') {
-        navigate('/dashboard');
+      if (profile.role === 'admin') {
+        navigate('/admin', { replace: true });
+      } else if (profile.role === 'seller') {
+        navigate('/dashboard', { replace: true });
       } else {
-        navigate('/');
+        navigate('/', { replace: true });
       }
     }
   }, [user, profile, authLoading, navigate]);
@@ -33,6 +36,8 @@ const Login: React.FC = () => {
 
   const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (loading) return;
+    
     if (!email || !password) {
       setError('Por favor completa todos los campos.');
       return;
@@ -42,21 +47,55 @@ const Login: React.FC = () => {
     setError('');
 
     try {
-      await loginWithEmail(email, password);
-      // Redirection is handled by useEffect
+      // Hardcoded Admin Check logic
+      if (email === 'admin@autofacil.com' && password === 'admin123') {
+        try {
+          await loginWithEmail(email, password);
+        } catch (adminErr: any) {
+          // If admin doesn't exist in Auth, auto-provision it
+          if (adminErr.code === 'auth/user-not-found' || adminErr.code === 'auth/invalid-credential' || adminErr.code === 'auth/wrong-password') {
+            try {
+              // Try signing up if login fails
+              await signUpWithEmail(email, password);
+            } catch (signupErr: any) {
+              if (signupErr.code === 'auth/email-already-in-use') {
+                // If exists but password was wrong, the main catch will show error
+                throw adminErr;
+              }
+              throw signupErr;
+            }
+          } else {
+            throw adminErr;
+          }
+        }
+      } else {
+        await loginWithEmail(email, password);
+      }
+      // Redirection is handled by the useEffect watching user and profile
     } catch (err: any) {
       console.error("Login Error:", err);
       if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
         setError('Credenciales incorrectas. Verifica tu correo y contraseña.');
       } else if (err.code === 'auth/too-many-requests') {
         setError('Demasiados intentos fallidos. Intenta más tarde.');
+      } else if (err.code === 'auth/operation-not-allowed') {
+        setError('El inicio de sesión con correo está deshabilitado. Actívalo en la consola de Firebase.');
       } else {
-        setError('Error al iniciar sesión. Inténtalo de nuevo.');
+        setError(`Error al iniciar sesión: ${err.message || 'Inténtalo de nuevo.'}`);
       }
     } finally {
       setLoading(false);
     }
   };
+
+  if (authLoading) {
+    return (
+      <div className="flex min-h-[85vh] flex-col items-center justify-center bg-brand-bg px-4 py-12 text-center">
+        <div className="w-16 h-16 border-4 border-brand-primary/20 border-t-brand-primary rounded-full animate-spin mb-6 mx-auto"></div>
+        <p className="text-brand-muted font-black text-xs tracking-widest uppercase animate-pulse">Iniciando sistema Auto Fácil...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-[85vh] flex-col items-center justify-center bg-brand-bg px-4 py-12 sm:px-6 lg:px-8 relative overflow-hidden">

@@ -2,5 +2,7 @@
   "name": "Auto Fácil",
   "description": "A comprehensive vehicle marketplace for buying, selling, and appraising cars with user roles, WhatsApp integration, and real-time reservations.",
   "requestFramePermissions": [],
-  "majorCapabilities": []
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
 }

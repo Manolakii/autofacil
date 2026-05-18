@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './components/AuthProvider';
 import { ThemeProvider } from './components/ThemeProvider';
@@ -9,8 +9,16 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import CarDetail from './pages/CarDetail';
 import SellerDashboard from './pages/SellerDashboard';
+import AdminDashboard from './pages/AdminDashboard';
+import { populateMockData } from './lib/mockData';
+import { initializeDatabase } from './lib/databaseInit';
 
 export default function App() {
+  useEffect(() => {
+    initializeDatabase();
+    populateMockData();
+  }, []);
+
   return (
     <BrowserRouter>
       <ThemeProvider>
@@ -25,6 +33,7 @@ export default function App() {
                 <Route path="/register" element={<Register />} />
                 <Route path="/cars/:id" element={<CarDetail />} />
                 <Route path="/dashboard" element={<SellerDashboard />} />
+                <Route path="/admin" element={<AdminDashboard />} />
               </Routes>
             </main>
             <footer className="border-t border-brand-border bg-brand-card py-12">

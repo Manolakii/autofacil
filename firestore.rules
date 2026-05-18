@@ -16,23 +16,24 @@ service cloud.firestore {
     function isAdmin() { 
       return isSignedIn() && (
         exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
-        request.auth.token.email == "manufigna5@gmail.com"
+        request.auth.token.email == "manufigna5@gmail.com" ||
+        request.auth.token.email == "admin@autofacil.com"
       ); 
     }
     function isActive() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.status == "active";
+      return isAdmin() || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.status == "active";
     }
 
     // --- Validation Helpers ---
 
-    function isValidUser(data) {
+    function isValidUser(data, isUpdate, docId) {
       return data.keys().hasAll(['username', 'email', 'role', 'status', 'createdAt']) &&
              data.keys().size() == 5 &&
              data.username is string && data.username.size() >= 1 && data.username.size() <= 50 &&
              data.email is string && data.email.size() <= 100 &&
-             data.role in ['client', 'seller'] &&
-             data.status == "active" &&
-             data.createdAt == request.time;
+             data.role in ['client', 'seller', 'admin'] &&
+             data.status in ['active', 'inactive'] &&
+             data.createdAt == (isUpdate ? get(/databases/$(database)/documents/users/$(docId)).data.createdAt : request.time);
     }
 
     function isValidCar(data) {
@@ -59,13 +60,14 @@ service cloud.firestore {
 
     match /users/{userId} {
       allow get: if isSignedIn();
-      allow list: if isAdmin();
-      allow create: if isSignedIn() && userId == request.auth.uid && isValidUser(incoming());
+      allow list: if isAdmin() || (isSignedIn() && resource.data.email == request.auth.token.email);
+      allow create: if isSignedIn() && (
+        isAdmin() || 
+        (userId == request.auth.uid && isValidUser(incoming(), false, userId))
+      );
       allow update: if isSignedIn() && (
         isAdmin() || 
-        (userId == request.auth.uid && 
-         incoming().diff(existing()).affectedKeys().hasOnly(['username']) &&
-         incoming().username is string && incoming().username.size() >= 3)
+        (userId == request.auth.uid && isValidUser(incoming(), true, userId))
       );
     }
 

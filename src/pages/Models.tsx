@@ -85,13 +85,13 @@ const Models: React.FC = () => {
       </div>
 
       {loading ? (
-        <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {[1,2,3,4,5,6,7,8].map(i => (
             <div key={i} className="h-80 animate-pulse rounded-2xl bg-brand-card border border-brand-border"></div>
           ))}
         </div>
       ) : (
-        <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           <AnimatePresence>
             {filteredCars.map(car => (
               <CarCard key={car.id} car={car} />

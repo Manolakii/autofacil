@@ -7,11 +7,10 @@ import { motion } from 'motion/react';
 import { Mail, Lock, UserPlus, AlertCircle } from 'lucide-react';
 
 const Register: React.FC = () => {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [role, setRole] = useState<'client' | 'seller'>('client');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -30,29 +29,18 @@ const Register: React.FC = () => {
     setError('');
     
     try {
-      const userCredential = await signUpWithEmail(email, password);
-      // Explicitly create user doc with role
-      const { user } = userCredential;
-      
-      await setDoc(doc(db, 'users', user.uid), {
-        username: email.split('@')[0],
-        email: email,
-        role: role,
-        status: 'active',
-        createdAt: serverTimestamp(),
-      });
-
-      if (role === 'seller') {
-        navigate('/dashboard');
-      } else {
-        navigate('/');
-      }
+      // TAREA 2: Solo registrar clientes
+      await signUpWithEmail(email, password);
+      // Redirection and profile creation (role: 'client') are handled by AuthProvider.tsx
+      navigate('/', { replace: true });
     } catch (err: any) {
       console.error("Registration Error:", err);
       if (err.code === 'auth/email-already-in-use') {
         setError('Este correo ya está registrado.');
       } else if (err.code === 'auth/weak-password') {
         setError('La contraseña debe tener al menos 6 caracteres.');
+      } else if (err.code === 'auth/operation-not-allowed') {
+        setError('El registro con correo está deshabilitado. Actívalo en la consola de Firebase.');
       } else {
         setError(err.message || 'Error al crear la cuenta. Inténtalo de nuevo.');
       }
@@ -60,6 +48,17 @@ const Register: React.FC = () => {
       setLoading(false);
     }
   };
+
+  if (user && !authLoading) return null;
+
+  if (authLoading) {
+    return (
+      <div className="flex min-h-[85vh] flex-col items-center justify-center bg-brand-bg px-4 py-12 text-center">
+        <div className="w-16 h-16 border-4 border-brand-primary/20 border-t-brand-primary rounded-full animate-spin mb-6 mx-auto"></div>
+        <p className="text-brand-muted font-black text-xs tracking-widest uppercase animate-pulse">Cargando registro...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-[85vh] flex-col items-center justify-center bg-brand-bg px-4 py-12 sm:px-6 lg:px-8 relative overflow-hidden">
@@ -89,18 +88,6 @@ const Register: React.FC = () => {
           )}
 
           <div className="space-y-4">
-            <div className="space-y-2">
-              <label className="text-[10px] font-black uppercase text-brand-muted tracking-widest pl-1">Tipo de Usuario</label>
-              <select 
-                value={role}
-                onChange={(e) => setRole(e.target.value as any)}
-                className="w-full rounded-2xl bg-brand-bg border border-brand-border p-4 text-sm font-bold focus:ring-2 focus:ring-brand-primary outline-none transition-all appearance-none cursor-pointer"
-              >
-                <option value="client">Cliente (Quiero comprar)</option>
-                <option value="seller">Vendedor (Quiero publicar)</option>
-              </select>
-            </div>
-
             <div className="space-y-2">
               <label className="text-[10px] font-black uppercase text-brand-muted tracking-widest pl-1">Correo Electrónico</label>
               <div className="relative">
