@@ -1,20 +1,64 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Calendar, Gauge, Fuel, ChevronRight } from 'lucide-react';
+import { Calendar, Gauge, Fuel, ChevronRight, Heart } from 'lucide-react';
 import { AppCar } from '../types';
 import { motion } from 'motion/react';
+import { useAuth } from './AuthProvider';
+import { db } from '../lib/firebase';
+import { doc, getDoc, setDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
 
 interface CarCardProps {
   car: AppCar;
 }
 
 export const CarCard: React.FC<CarCardProps> = ({ car }) => {
+  const { user } = useAuth();
+  const [isFav, setIsFav] = useState(false);
+
+  useEffect(() => {
+    if (!user) {
+      setIsFav(false);
+      return;
+    }
+    const checkFav = async () => {
+      try {
+        const favRef = doc(db, `users/${user.uid}/favorites`, car.id);
+        const favSnap = await getDoc(favRef);
+        setIsFav(favSnap.exists());
+      } catch (err) {
+        console.error("Error checking active favorite state:", err);
+      }
+    };
+    checkFav();
+  }, [user, car.id]);
+
+  const handleToggleFav = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!user) {
+      alert("Inicia sesión para poder añadir vehículos a tu lista personalizada.");
+      return;
+    }
+    try {
+      const favRef = doc(db, `users/${user.uid}/favorites`, car.id);
+      if (isFav) {
+        await deleteDoc(favRef);
+        setIsFav(false);
+      } else {
+        await setDoc(favRef, { carId: car.id, addedAt: serverTimestamp() });
+        setIsFav(true);
+      }
+    } catch (err) {
+      console.error("Error writing favorite:", err);
+    }
+  };
+
   return (
     <motion.div 
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       whileHover={{ y: -4 }}
-      className="group overflow-hidden rounded-2xl bg-brand-card shadow-sm ring-1 ring-brand-border transition-all hover:shadow-xl hover:shadow-brand-primary/5"
+      className="group overflow-hidden rounded-2xl bg-brand-card shadow-sm ring-1 ring-brand-border transition-all hover:shadow-xl hover:shadow-brand-primary/5 relative"
     >
       <div className="relative aspect-video w-full overflow-hidden bg-brand-bg">
         <img 
@@ -30,6 +74,19 @@ export const CarCard: React.FC<CarCardProps> = ({ car }) => {
             {car.status === 'reserved' ? 'Reservado' : 'Vendido'}
           </div>
         )}
+
+        {/* Favorite heart icon */}
+        <button
+          onClick={handleToggleFav}
+          className={`absolute top-4 right-4 z-10 flex h-9 w-9 items-center justify-center rounded-full transition-all active:scale-90 shadow-md ${
+            isFav 
+              ? 'bg-red-500 text-white hover:bg-red-600' 
+              : 'bg-brand-card/90 text-brand-muted hover:text-red-500'
+          }`}
+          title={isFav ? "Quitar de favoritos" : "Añadir a mi lista personalizada"}
+        >
+          <Heart size={16} fill={isFav ? "currentColor" : "none"} />
+        </button>
       </div>
 
       <div className="p-5">

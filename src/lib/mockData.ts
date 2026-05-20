@@ -27,6 +27,7 @@ export const populateMockData = async () => {
         currency: 'USD',
         condition: 'excellent',
         status: 'available',
+        category: 'sedan',
         sellerId: 'admin-fixed', // Simulated ID
         images: ['https://images.unsplash.com/photo-1621007947382-bb3c3994e3fb?q=80&w=1000'],
         createdAt: serverTimestamp(),
@@ -46,6 +47,7 @@ export const populateMockData = async () => {
         currency: 'USD',
         condition: 'excellent',
         status: 'available',
+        category: 'deportivo',
         sellerId: 'admin-fixed',
         images: ['https://images.unsplash.com/photo-1617814076367-b757c7a7b8e1?q=80&w=1000'],
         createdAt: serverTimestamp(),

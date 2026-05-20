@@ -10,6 +10,7 @@ import Register from './pages/Register';
 import CarDetail from './pages/CarDetail';
 import SellerDashboard from './pages/SellerDashboard';
 import AdminDashboard from './pages/AdminDashboard';
+import MyAccount from './pages/MyAccount';
 import { populateMockData } from './lib/mockData';
 import { initializeDatabase } from './lib/databaseInit';
 
@@ -34,6 +35,7 @@ export default function App() {
                 <Route path="/cars/:id" element={<CarDetail />} />
                 <Route path="/dashboard" element={<SellerDashboard />} />
                 <Route path="/admin" element={<AdminDashboard />} />
+                <Route path="/my-account" element={<MyAccount />} />
               </Routes>
             </main>
             <footer className="border-t border-brand-border bg-brand-card py-12">

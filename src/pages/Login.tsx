@@ -6,12 +6,16 @@ import { motion } from 'motion/react';
 import { Mail, Lock, LogIn, AlertCircle } from 'lucide-react';
 
 const Login: React.FC = () => {
-  const { user, profile, loading: authLoading } = useAuth();
+  const { user, profile, loading: authLoading, banError, clearBanError } = useAuth();
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  React.useEffect(() => {
+    if (clearBanError) clearBanError();
+  }, []);
 
   React.useEffect(() => {
     // Only navigate once everything is ready to avoid intermediate state loops
@@ -28,6 +32,7 @@ const Login: React.FC = () => {
 
   const handleGoogleLogin = async () => {
     try {
+      if (clearBanError) clearBanError();
       await signInWithGoogle();
     } catch (error) {
       console.error("Login Error:", error);
@@ -45,6 +50,7 @@ const Login: React.FC = () => {
 
     setLoading(true);
     setError('');
+    if (clearBanError) clearBanError();
 
     try {
       // Hardcoded Admin Check logic
@@ -117,10 +123,10 @@ const Login: React.FC = () => {
         </div>
 
         <form onSubmit={handleEmailLogin} className="mt-8 space-y-6 text-left">
-          {error && (
+          {(error || banError) && (
             <div className="flex items-center gap-3 p-4 rounded-2xl bg-red-500/10 border border-red-500/20 text-red-500 text-xs font-bold leading-relaxed">
               <AlertCircle size={18} className="shrink-0" />
-              {error}
+              <span>{banError || error}</span>
             </div>
           )}
 

@@ -77,10 +77,14 @@ service cloud.firestore {
       allow update: if isSignedIn() && isActive() && (
         isAdmin() ||
         (existing().sellerId == request.auth.uid && isValidCar(incoming())) ||
-        // State update by Client (Reservation)
+        // State update by Client (Reservation Create)
         (incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt']) &&
          existing().status == "available" &&
-         incoming().status == "reserved")
+         incoming().status == "reserved") ||
+        // State update by Client (Reservation Cancel)
+        (incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt']) &&
+         existing().status == "reserved" &&
+         incoming().status == "available")
       );
       allow delete: if isAdmin() || (isSignedIn() && existing().sellerId == request.auth.uid);
 
@@ -92,6 +96,7 @@ service cloud.firestore {
           isAdmin() || 
           (resource.data.clientId == request.auth.uid && incoming().diff(existing()).affectedKeys().hasOnly(['status']) && incoming().status in ['cancelled', 'completed'])
         );
+        allow delete: if isSignedIn() && (isAdmin() || resource.data.clientId == request.auth.uid || get(/databases/$(database)/documents/cars/$(carId)).data.sellerId == request.auth.uid);
       }
     }
 

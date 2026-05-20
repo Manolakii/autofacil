@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { signUpWithEmail, db } from '../lib/firebase';
+import { signUpWithEmail, signInWithGoogle, db } from '../lib/firebase';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { useAuth } from '../components/AuthProvider';
 import { motion } from 'motion/react';
@@ -125,6 +125,31 @@ const Register: React.FC = () => {
             className="flex w-full items-center justify-center gap-4 rounded-2xl bg-brand-primary py-5 px-6 text-sm font-black uppercase tracking-[0.2em] text-white transition-all hover:bg-blue-500 active:scale-95 shadow-xl shadow-brand-primary/30 disabled:opacity-50 disabled:scale-100"
           >
             {loading ? 'Creando cuenta...' : 'Registrarse Ahora'}
+          </button>
+
+          <div className="relative py-2">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-brand-border"></div>
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-brand-card px-2 text-brand-muted font-bold tracking-widest">O continúa con</span>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={async () => {
+              try {
+                await signInWithGoogle();
+              } catch (err: any) {
+                console.error("Google Registration Error:", err);
+                setError(err.message || 'Error en autenticación con Google.');
+              }
+            }}
+            className="flex w-full items-center justify-center gap-4 rounded-2xl border border-brand-border bg-brand-bg py-4 px-6 text-sm font-bold text-brand-text transition-all hover:bg-brand-card hover:border-brand-primary active:scale-95"
+          >
+            <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" className="h-5 w-5" />
+            Google
           </button>
 
           <div className="pt-2 text-center text-xs">

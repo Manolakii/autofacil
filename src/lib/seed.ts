@@ -16,6 +16,7 @@ const MOCK_CARS = [
     condition: "Mint condition, single owner.",
     images: ["https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&q=80&w=800"],
     status: "available",
+    category: "deportivo",
     sellerId: "seed-seller-1",
   },
   {
@@ -32,6 +33,7 @@ const MOCK_CARS = [
     condition: "Full Self-Driving, like new.",
     images: ["https://images.unsplash.com/photo-1560958089-b8a1929cea89?auto=format&fit=crop&q=80&w=800"],
     status: "available",
+    category: "electrico",
     sellerId: "seed-seller-1",
   },
   {
@@ -48,6 +50,7 @@ const MOCK_CARS = [
     condition: "Daily driver, well maintained.",
     images: ["https://images.unsplash.com/photo-1623860841280-29e069e7e251?auto=format&fit=crop&q=80&w=800"],
     status: "available",
+    category: "sedan",
     sellerId: "seed-seller-1",
   }
 ];

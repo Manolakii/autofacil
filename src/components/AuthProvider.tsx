@@ -19,6 +19,8 @@ interface AuthContextType {
   profile: UserProfile | null;
   loading: boolean;
   signOut: () => Promise<void>;
+  banError: string | null;
+  clearBanError: () => void;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -26,6 +28,8 @@ const AuthContext = createContext<AuthContextType>({
   profile: null,
   loading: true,
   signOut: async () => {},
+  banError: null,
+  clearBanError: () => {},
 });
 
 export const useAuth = () => useContext(AuthContext);
@@ -34,6 +38,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [banError, setBanError] = useState<string | null>(null);
+
+  const clearBanError = () => setBanError(null);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
@@ -44,6 +51,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
           if (userDoc.exists()) {
             const data = userDoc.data();
+            if (data.status === 'banned' || data.status === 'inactive') {
+              await auth.signOut();
+              setBanError("Su cuenta esta inhabilitada en estos momentos, en caso de reclamo, contactarse con soporte");
+              setUser(null);
+              setProfile(null);
+              setLoading(false);
+              return;
+            }
             if (isAdminEmail && data.role !== 'admin') {
               // Forced upgrade for whitelisted admins
               await updateDoc(doc(db, 'users', firebaseUser.uid), { role: 'admin' });
@@ -52,33 +67,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               setProfile({ id: userDoc.id, ...data } as UserProfile);
             }
           } else {
-            // Check if there is a pre-created profile with this email (e.g. created by Admin)
-            const usersRef = collection(db, 'users');
-            const q = query(usersRef, where("email", "==", firebaseUser.email));
-            const existingProfiles = await getDocs(q);
-
-            if (!existingProfiles.empty) {
-              const existingData = existingProfiles.docs[0].data();
-              const finalProfile = {
-                username: firebaseUser.displayName || existingData.username || 'Usuario',
-                email: firebaseUser.email || existingData.email,
-                role: existingData.role || 'client',
-                status: existingData.status || 'active',
-                createdAt: serverTimestamp(),
-              };
-              await setDoc(doc(db, 'users', firebaseUser.uid), finalProfile);
-              setProfile({ id: firebaseUser.uid, ...finalProfile } as any);
-            } else {
-              const newProfile = {
-                username: isAdminEmail ? 'Administrador' : (firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User'),
-                email: firebaseUser.email!,
-                role: (isAdminEmail ? 'admin' : 'client') as any,
-                status: 'active' as const,
-                createdAt: serverTimestamp(),
-              };
-              await setDoc(doc(db, 'users', firebaseUser.uid), newProfile);
-              setProfile({ id: firebaseUser.uid, ...newProfile } as any);
-            }
+            // No user doc exists. It's a fresh registration or Google login.
+            const newProfile = {
+              username: isAdminEmail ? 'Administrador' : (firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User'),
+              email: firebaseUser.email!,
+              role: (isAdminEmail ? 'admin' : 'client') as any,
+              status: 'active' as const,
+              createdAt: serverTimestamp(),
+            };
+            await setDoc(doc(db, 'users', firebaseUser.uid), newProfile);
+            setProfile({ id: firebaseUser.uid, ...newProfile } as any);
           }
           setUser(firebaseUser);
         } else {
@@ -103,7 +101,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signOut = () => auth.signOut();
 
   return (
-    <AuthContext.Provider value={{ user, profile, loading, signOut }}>
+    <AuthContext.Provider value={{ user, profile, loading, signOut, banError, clearBanError }}>
       {children}
     </AuthContext.Provider>
   );

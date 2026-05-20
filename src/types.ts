@@ -26,6 +26,7 @@ export interface AppCar {
   condition: string;
   images: string[];
   status: 'available' | 'reserved' | 'sold';
+  category?: string;
   createdAt: any;
   updatedAt: any;
 }

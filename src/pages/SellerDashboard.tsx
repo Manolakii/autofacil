@@ -20,6 +20,7 @@ const SellerDashboard: React.FC = () => {
   const [price, setPrice] = useState(0);
   const [mileage, setMileage] = useState(0);
   const [condition, setCondition] = useState('Good');
+  const [category, setCategory] = useState('sedan');
   const [images, setImages] = useState<string[]>([]);
   const [appraising, setAppraising] = useState(false);
   const [suggestedPrice, setSuggestedPrice] = useState<number | null>(null);
@@ -53,9 +54,10 @@ const SellerDashboard: React.FC = () => {
       price: Number(price),
       mileage: Number(mileage),
       condition,
+      category,
       sellerId: user.uid,
       transmission: 'automatic',
-      fuel: 'gasoline',
+      fuel: 'electric' === category ? 'electric' : 'gasoline',
       color: 'White',
       doors: 4,
       currency: 'USD',
@@ -80,7 +82,7 @@ const SellerDashboard: React.FC = () => {
   };
 
   const resetForm = () => {
-    setBrand(''); setModel(''); setYear(2024); setPrice(0); setMileage(0); setCondition('Good');
+    setBrand(''); setModel(''); setYear(2024); setPrice(0); setMileage(0); setCondition('Good'); setCategory('sedan');
     setEditingCar(null);
     setImages([]);
     setSuggestedPrice(null);
@@ -132,6 +134,7 @@ const SellerDashboard: React.FC = () => {
     setPrice(car.price);
     setMileage(car.mileage);
     setCondition(car.condition);
+    setCategory(car.category || 'sedan');
     setShowForm(true);
   };
 
@@ -446,6 +449,18 @@ const SellerDashboard: React.FC = () => {
                         <option value="Good">Bueno - Bien Mantenido</option>
                         <option value="Fair">Aceptable - Desgaste Normal</option>
                         <option value="Poor">Pobre - Requiere Reparación</option>
+                      </select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase text-brand-muted tracking-widest pl-1">Categoría / Tipo de Auto</label>
+                      <select value={category} onChange={e => setCategory(e.target.value)} className="w-full rounded-2xl bg-brand-bg border border-brand-border p-4 text-sm font-bold focus:ring-2 focus:ring-brand-primary outline-none transition-all appearance-none cursor-pointer">
+                        <option value="sedan">Sedán</option>
+                        <option value="suv">SUV</option>
+                        <option value="deportivo">Deportivo</option>
+                        <option value="electrico">Eléctrico</option>
+                        <option value="compacto">Compacto</option>
+                        <option value="otro">Otro</option>
                       </select>
                     </div>
 

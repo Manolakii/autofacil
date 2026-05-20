@@ -6,7 +6,17 @@ import { CarCard } from '../components/CarCard';
 import { Search, Filter, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
-const CATEGORIES = ['Todos', 'Sedán', 'SUV', 'Deportivo', 'Eléctrico'];
+const CATEGORIES = ['Todos', 'Sedán', 'SUV', 'Deportivo', 'Eléctrico', 'Compacto', 'Otro'];
+
+const CAT_MAP: Record<string, string> = {
+  'Todos': 'all',
+  'Sedán': 'sedan',
+  'SUV': 'suv',
+  'Deportivo': 'deportivo',
+  'Eléctrico': 'electrico',
+  'Compacto': 'compacto',
+  'Otro': 'otro'
+};
 
 const Models: React.FC = () => {
   const [cars, setCars] = useState<AppCar[]>([]);
@@ -32,8 +42,15 @@ const Models: React.FC = () => {
   }, []);
 
   const filteredCars = cars.filter(car => {
-    const matchesSearch = (car.brand + ' ' + car.model).toLowerCase().includes(search.toLowerCase());
-    const matchesCategory = selectedCategory === 'Todos' || car.brand.includes(selectedCategory); 
+    const matchesSearch = (car.brand + ' ' + car.model + ' ' + (car.category || '')).toLowerCase().includes(search.toLowerCase());
+    
+    const dbCategory = (car.category || '').toLowerCase();
+    const filterCategory = selectedCategory === 'Todos' ? 'all' : CAT_MAP[selectedCategory] || selectedCategory.toLowerCase();
+    
+    const matchesCategory = filterCategory === 'all' || 
+                           dbCategory === filterCategory ||
+                           (filterCategory === 'electrico' && car.fuel === 'electric') ||
+                           (!dbCategory && car.brand.includes(selectedCategory));
     return matchesSearch && matchesCategory;
   });
 

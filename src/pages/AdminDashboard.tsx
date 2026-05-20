@@ -3,6 +3,9 @@ import { db } from '../lib/firebase';
 import { collection, query, getDocs, doc, updateDoc, setDoc, serverTimestamp, where } from 'firebase/firestore';
 import { useAuth } from '../components/AuthProvider';
 import { motion, AnimatePresence } from 'motion/react';
+import { initializeApp as initTempApp, deleteApp as deleteTempApp } from 'firebase/app';
+import { getAuth as getTempAuth, createUserWithEmailAndPassword as createTempUser, signOut as signOutOfTemp } from 'firebase/auth';
+import firebaseConfig from '../../firebase-applet-config.json';
 import { 
   Users, 
   UserPlus, 
@@ -14,7 +17,9 @@ import {
   Mail,
   Lock,
   CheckCircle,
-  AlertCircle
+  AlertCircle,
+  Edit2,
+  X
 } from 'lucide-react';
 
 interface UserProfile {
@@ -22,7 +27,7 @@ interface UserProfile {
   username: string;
   email: string;
   role: 'client' | 'seller' | 'admin';
-  status: 'active' | 'inactive';
+  status: 'active' | 'inactive' | 'banned';
   createdAt: any;
 }
 
@@ -38,6 +43,16 @@ const AdminDashboard: React.FC = () => {
   const [formLoading, setFormLoading] = useState(false);
   const [formSuccess, setFormSuccess] = useState('');
   const [formError, setFormError] = useState('');
+
+  // Edit User Form State
+  const [editingUserProfile, setEditingUserProfile] = useState<UserProfile | null>(null);
+  const [editUsername, setEditUsername] = useState('');
+  const [editEmail, setEditEmail] = useState('');
+  const [editRole, setEditRole] = useState<'client' | 'seller' | 'admin'>('client');
+  const [editStatus, setEditStatus] = useState<'active' | 'inactive' | 'banned'>('active');
+  const [editLoading, setEditLoading] = useState(false);
+  const [editError, setEditError] = useState('');
+  const [editSuccess, setEditSuccess] = useState('');
 
   useEffect(() => {
     fetchUsers();
@@ -56,9 +71,54 @@ const AdminDashboard: React.FC = () => {
     }
   };
 
+  const handleUpdateUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingUserProfile) return;
+    setEditLoading(true);
+    setEditError('');
+    setEditSuccess('');
+
+    try {
+      if (!editUsername.trim() || !editEmail.trim()) {
+        setEditError('Por favor, completa todos los campos requeridos.');
+        setEditLoading(false);
+        return;
+      }
+
+      await updateDoc(doc(db, 'users', editingUserProfile.id), {
+        username: editUsername,
+        email: editEmail,
+        role: editRole,
+        status: editStatus
+      });
+
+      setEditSuccess('¡Usuario actualizado exitosamente!');
+      
+      // Update local state instantly
+      setUsers(users.map(u => u.id === editingUserProfile.id ? {
+        ...u, 
+        username: editUsername,
+        email: editEmail,
+        role: editRole,
+        status: editStatus
+      } : u));
+
+      setTimeout(() => {
+        setEditingUserProfile(null);
+        setEditSuccess('');
+      }, 1000);
+
+    } catch (err: any) {
+      console.error("Error updating user:", err);
+      setEditError(err.message || 'Error al actualizar el usuario.');
+    } finally {
+      setEditLoading(false);
+    }
+  };
+
   const handleVeto = async (userId: string, currentStatus: string) => {
     try {
-      const newStatus = currentStatus === 'active' ? 'inactive' : 'active';
+      const newStatus = currentStatus === 'active' ? 'banned' : 'active';
       await updateDoc(doc(db, 'users', userId), {
         status: newStatus
       });
@@ -75,56 +135,79 @@ const AdminDashboard: React.FC = () => {
     setFormError('');
 
     try {
-      // NOTE: In a real app, you'd use a Cloud Function to create the Auth user.
-      // Here, we'll simulate the "Admin creates Seller" by adding a record to Firestore.
-      // The user will still need to register via /register with THIS email to "claim" the account,
-      // OR the admin provides the pre-created credentials.
-      
-      // For this simulation, we'll check if the user already exists in Firestore
+      if (!newSellerEmail || !newSellerPass) {
+        setFormError('Por favor completa todos los campos.');
+        setFormLoading(false);
+        return;
+      }
+
+      if (newSellerPass.length < 6) {
+        setFormError('La contraseña debe tener al menos 6 caracteres.');
+        setFormLoading(false);
+        return;
+      }
+
+      // Check if user already exists in Firestore 'users' collection
       const userRef = collection(db, 'users');
       const q = query(userRef, where("email", "==", newSellerEmail));
       const existing = await getDocs(q);
 
       if (!existing.empty) {
-        setFormError('Este correo ya está registrado.');
+        setFormError('Este correo ya está registrado en la base de datos.');
         setFormLoading(false);
         return;
       }
 
-      // We'll create a "pending" or "pre-defined" seller.
-      // Since we can't create Auth users from client side without their password session,
-      // the instruction says "Al enviar el formulario, el script debe guardar este nuevo usuario en el localStorage asignándole obligatoriamente el rol: 'vendedor'".
-      // I'll use Firestore and the logic in AuthProvider will pick it up if they login.
-      
-      // But wait, the user wants the Admin to PROVIDE Email and Pass.
-      // This implies the Admin is defining the credentials.
-      
-      // I'll add a placeholder for now, but in this specific architecture, 
-      // the Admin would usually use a secondary Firebase Admin SDK or Cloud Function.
-      // I'll just show a success message and add it to the list for simulation.
-      
-      const newSeller = {
-        username: newSellerEmail.split('@')[0],
-        email: newSellerEmail,
-        role: 'seller' as const,
-        status: 'active' as const,
-        createdAt: serverTimestamp()
-      };
+      // To register the seller account without terminating the current administrator session,
+      // we initialize a isolated secondary Firebase App instance.
+      const tempAppName = `temp-seller-${Date.now()}`;
+      const tempApp = initTempApp(firebaseConfig, tempAppName);
+      const tempAuth = getTempAuth(tempApp);
 
-      // Since we don't have the UID yet (it's generated by Auth), 
-      // we can use the email as an ID for now or a random one if it's a "pre-registration".
-      // But better to just inform that in this demo, the Seller is now "Authorized".
-      
-      // Realistically, I'll just add it to the 'users' collection with a random ID
-      // and a flag that says it's a pre-created seller.
-      await setDoc(doc(collection(db, 'users')), newSeller);
-      
-      setFormSuccess(`Vendedor ${newSellerEmail} creado con éxito.`);
-      setNewSellerEmail('');
-      setNewSellerPass('');
-      fetchUsers();
-    } catch (error) {
-      setFormError('Error al crear el vendedor.');
+      let newUid = '';
+      try {
+        // Register the new user credentials in Firebase Auth
+        const userCredential = await createTempUser(tempAuth, newSellerEmail, newSellerPass);
+        newUid = userCredential.user.uid;
+        
+        // Log out clean from the secondary Auth pool
+        await signOutOfTemp(tempAuth);
+      } catch (authError: any) {
+        console.error("Auth creation failed:", authError);
+        if (authError.code === 'auth/email-already-in-use') {
+          throw new Error('El correo electrónico ya está registrado en Firebase Autenticación.');
+        } else if (authError.code === 'auth/weak-password') {
+          throw new Error('La contraseña es demasiado débil (mínimo 6 caracteres).');
+        } else {
+          throw new Error(`Error en Firebase Auth: ${authError.message}`);
+        }
+      } finally {
+        // Always destroy the secondary Firebase instance to free up memory and prevent duplications
+        await deleteTempApp(tempApp);
+      }
+
+      // Now create the seller's user profile in Firestore
+      if (newUid) {
+        const sellerRef = doc(db, 'users', newUid);
+        await setDoc(sellerRef, {
+          username: newSellerEmail.split('@')[0],
+          email: newSellerEmail,
+          role: 'seller',
+          status: 'active',
+          createdAt: serverTimestamp()
+        });
+
+        setFormSuccess(`Vendedor '${newSellerEmail}' creado y registrado con éxito.`);
+        setNewSellerEmail('');
+        setNewSellerPass('');
+        // Refresh the database lists
+        await fetchUsers();
+      } else {
+        throw new Error('No se pudo generar un identificador de usuario válido.');
+      }
+    } catch (error: any) {
+      console.error("Error creating seller:", error);
+      setFormError(error.message || 'Error al crear el vendedor en la base de datos.');
     } finally {
       setFormLoading(false);
     }
@@ -357,26 +440,46 @@ const AdminDashboard: React.FC = () => {
                           <td className="p-6">
                              <span className={`flex items-center gap-2 text-xs font-bold ${u.status === 'active' ? 'text-green-500' : 'text-red-500'}`}>
                                <div className={`w-2 h-2 rounded-full ${u.status === 'active' ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]' : 'bg-red-500'}`}></div>
-                               {u.status === 'active' ? 'Activo' : 'Veteado'}
+                               {u.status === 'active' ? 'Activo' : u.status === 'banned' ? 'Baneado' : 'Inactivo'}
                              </span>
                           </td>
                           <td className="p-6 text-right">
-                            {u.role !== 'admin' && (
+                            <div className="flex items-center justify-end gap-2">
                               <button 
-                                onClick={() => handleVeto(u.id, u.status)}
-                                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
-                                  u.status === 'active' 
-                                  ? 'bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white' 
-                                  : 'bg-green-500/10 text-green-500 hover:bg-green-500 hover:text-white'
-                                }`}
+                                onClick={() => {
+                                  setEditingUserProfile(u);
+                                  setEditUsername(u.username || '');
+                                  setEditEmail(u.email || '');
+                                  setEditRole(u.role || 'client');
+                                  setEditStatus(u.status || 'active');
+                                  setEditError('');
+                                  setEditSuccess('');
+                                }}
+                                className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider bg-brand-bg hover:bg-brand-primary hover:text-white border border-brand-border transition-all cursor-pointer text-brand-text"
+                                title="Editar datos"
                               >
-                                {u.status === 'active' ? (
-                                  <><ShieldOff size={14} /> Vetar</>
-                                ) : (
-                                  <><Shield size={14} /> Activar</>
-                                )}
+                                <Edit2 size={12} />
+                                <span className="hidden sm:inline">Editar</span>
                               </button>
-                            )}
+
+                              {u.role !== 'admin' && (
+                                <button 
+                                  onClick={() => handleVeto(u.id, u.status)}
+                                  className={`flex items-center gap-1 px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer ${
+                                    u.status === 'active' 
+                                    ? 'bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white' 
+                                    : 'bg-green-500/10 text-green-500 hover:bg-green-500 hover:text-white'
+                                  }`}
+                                  title={u.status === 'active' ? 'Vetar usuario' : 'Activar usuario'}
+                                >
+                                  {u.status === 'active' ? (
+                                    <><ShieldOff size={11} /> <span className="hidden sm:inline">Vetar</span></>
+                                  ) : (
+                                    <><Shield size={11} /> <span className="hidden sm:inline">Activar</span></>
+                                  )}
+                                </button>
+                              )}
+                            </div>
                           </td>
                         </motion.tr>
                       ))}
@@ -388,6 +491,123 @@ const AdminDashboard: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Edit User Modal */}
+      <AnimatePresence>
+        {editingUserProfile && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm overflow-y-auto">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="w-full max-w-lg rounded-[2rem] bg-brand-card border border-brand-border p-6 sm:p-8 shadow-2xl relative my-8 text-left"
+            >
+              <button
+                type="button"
+                onClick={() => setEditingUserProfile(null)}
+                className="absolute top-6 right-6 p-2 rounded-xl bg-brand-bg hover:bg-brand-primary/10 text-brand-muted hover:text-brand-primary border border-brand-border transition-colors outline-none cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+
+              <div className="mb-6">
+                <span className="inline-block rounded-full bg-brand-primary/15 px-3 py-1 text-[10px] font-black uppercase text-brand-primary border border-brand-primary/20 tracking-wider">
+                  Consola de Administración
+                </span>
+                <h2 className="text-2xl font-black text-brand-text uppercase italic tracking-tight mt-1.5">
+                  Editar Usuario
+                </h2>
+                <p className="text-xs text-brand-muted font-bold uppercase tracking-wide">Modifica los privilegios y datos del perfil</p>
+              </div>
+
+              <form onSubmit={handleUpdateUser} className="space-y-5">
+                {editSuccess && (
+                  <div className="flex items-center gap-3 p-4 rounded-xl bg-green-500/10 border border-green-500/20 text-green-500 text-xs font-bold">
+                    <CheckCircle size={18} />
+                    {editSuccess}
+                  </div>
+                )}
+                {editError && (
+                  <div className="flex items-center gap-3 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-500 text-xs font-bold">
+                    <AlertCircle size={18} />
+                    {editError}
+                  </div>
+                )}
+
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black uppercase text-brand-muted tracking-widest pl-1">Nombre de Usuario</label>
+                  <input 
+                    type="text" 
+                    value={editUsername} 
+                    onChange={e => setEditUsername(e.target.value)} 
+                    placeholder="Nombre completo o alias" 
+                    required 
+                    className="w-full rounded-2xl bg-brand-bg border border-brand-border p-4 text-sm font-bold text-brand-text focus:ring-2 focus:ring-brand-primary outline-none transition-all" 
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black uppercase text-brand-muted tracking-widest pl-1">Correo Electrónico</label>
+                  <input 
+                    type="email" 
+                    value={editEmail} 
+                    onChange={e => setEditEmail(e.target.value)} 
+                    placeholder="email@dominio.com" 
+                    required 
+                    className="w-full rounded-2xl bg-brand-bg border border-brand-border p-4 text-sm font-bold text-brand-text focus:ring-2 focus:ring-brand-primary outline-none transition-all" 
+                  />
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-black uppercase text-brand-muted tracking-widest pl-1">Rol en el Sistema</label>
+                    <select 
+                      value={editRole} 
+                      onChange={e => setEditRole(e.target.value as any)} 
+                      className="w-full rounded-2xl bg-brand-bg border border-brand-border p-4 text-sm font-bold text-brand-text focus:ring-2 focus:ring-brand-primary outline-none transition-all cursor-pointer appearance-none"
+                    >
+                      <option value="client">Cliente (Client)</option>
+                      <option value="seller">Vendedor (Seller)</option>
+                      <option value="admin">Administrador (Admin)</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-black uppercase text-brand-muted tracking-widest pl-1">Estado de Cuenta</label>
+                    <select 
+                      value={editStatus} 
+                      onChange={e => setEditStatus(e.target.value as any)} 
+                      className="w-full rounded-2xl bg-brand-bg border border-brand-border p-4 text-sm font-bold text-brand-text focus:ring-2 focus:ring-brand-primary outline-none transition-all cursor-pointer appearance-none"
+                    >
+                      <option value="active">Activo (Active)</option>
+                      <option value="inactive">Inactivo (Inactive)</option>
+                      <option value="banned">Baneado / Suspendido (Banned)</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Actions */}
+                <div className="flex gap-3 pt-4">
+                  <button
+                    type="button"
+                    onClick={() => setEditingUserProfile(null)}
+                    className="flex-1 py-4 rounded-xl border border-brand-border text-brand-text font-black uppercase text-xs tracking-wider hover:bg-brand-bg transition-colors cursor-pointer"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={editLoading}
+                    className="flex-1 py-4 rounded-xl bg-brand-primary hover:bg-blue-500 text-white font-black uppercase text-xs tracking-wider transition-all disabled:opacity-50 shadow-lg shadow-brand-primary/15 cursor-pointer"
+                  >
+                    {editLoading ? 'Guardando...' : 'Guardar Cambios'}
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
