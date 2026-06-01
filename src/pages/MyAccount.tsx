@@ -48,6 +48,16 @@ const MyAccount: React.FC = () => {
   const [favorites, setFavorites] = useState<AppCar[]>([]);
   const [loadingData, setLoadingData] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
+
+  useEffect(() => {
+    if (toast) {
+      const timer = setTimeout(() => {
+        setToast(null);
+      }, 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [toast]);
 
   const fetchUserData = async () => {
     if (!user) return;
@@ -138,10 +148,6 @@ const MyAccount: React.FC = () => {
   }, [window.location.search]);
 
   const handleCancelReservation = async (reservation: ReservationItem) => {
-    if (!window.confirm("¿Seguro que deseas cancelar esta reserva? El vehículo volverá a estar disponible.")) {
-      return;
-    }
-
     setActionLoading(reservation.id);
     try {
       // 1. Delete reservation doc
@@ -155,11 +161,11 @@ const MyAccount: React.FC = () => {
         updatedAt: serverTimestamp()
       });
 
-      alert("Reserva cancelada con éxito.");
+      setToast({ message: "Reserva cancelada con éxito.", type: "success" });
       fetchUserData();
     } catch (err) {
       console.error("Error cancelling reservation:", err);
-      alert("No se pudo cancelar la reserva.");
+      setToast({ message: "No se pudo cancelar la reserva.", type: "error" });
     } finally {
       setActionLoading(null);
     }
@@ -445,6 +451,23 @@ const MyAccount: React.FC = () => {
         </div>
 
       </div>
+
+      {toast && (
+        <motion.div 
+          initial={{ opacity: 0, y: 50, scale: 0.95 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: 50, scale: 0.95 }}
+          className={`fixed bottom-6 right-6 z-[9999] flex items-center gap-3 px-5 py-4 rounded-2xl border shadow-2xl ${
+            toast.type === 'success' 
+              ? 'bg-emerald-950/90 border-emerald-500/30 text-emerald-400' 
+              : toast.type === 'error'
+              ? 'bg-red-950/90 border-red-500/30 text-red-500'
+              : 'bg-brand-card/90 border-brand-border text-brand-text'
+          }`}
+        >
+          <span className="text-xs font-semibold tracking-wide">{toast.message}</span>
+        </motion.div>
+      )}
     </div>
   );
 };

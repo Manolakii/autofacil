@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { signInWithGoogle, loginWithEmail, signUpWithEmail } from '../lib/firebase';
 import { useAuth } from '../components/AuthProvider';
 import { motion } from 'motion/react';
@@ -8,10 +8,13 @@ import { Mail, Lock, LogIn, AlertCircle } from 'lucide-react';
 const Login: React.FC = () => {
   const { user, profile, loading: authLoading, banError, clearBanError } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  const from = (location.state as any)?.from || null;
 
   React.useEffect(() => {
     if (clearBanError) clearBanError();
@@ -20,7 +23,9 @@ const Login: React.FC = () => {
   React.useEffect(() => {
     // Only navigate once everything is ready to avoid intermediate state loops
     if (user && profile && !authLoading) {
-      if (profile.role === 'admin') {
+      if (from) {
+        navigate(from, { replace: true });
+      } else if (profile.role === 'admin') {
         navigate('/admin', { replace: true });
       } else if (profile.role === 'seller') {
         navigate('/dashboard', { replace: true });
@@ -28,7 +33,7 @@ const Login: React.FC = () => {
         navigate('/', { replace: true });
       }
     }
-  }, [user, profile, authLoading, navigate]);
+  }, [user, profile, authLoading, navigate, from]);
 
   const handleGoogleLogin = async () => {
     try {

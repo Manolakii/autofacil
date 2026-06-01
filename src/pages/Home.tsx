@@ -7,6 +7,7 @@ import { Search, Shield, Zap, Globe } from 'lucide-react';
 import { motion } from 'motion/react';
 import { Link } from 'react-router-dom';
 import { seedDatabase } from '../lib/seed';
+import { useAuth } from '../components/AuthProvider';
 
 const FEATURES = [
   { icon: Shield, title: "Transacciones Seguras", desc: "Cada operación está protegida y verificada por nuestro equipo técnico." },
@@ -15,6 +16,7 @@ const FEATURES = [
 ];
 
 const Home: React.FC = () => {
+  const { profile } = useAuth();
   const [featuredCars, setFeaturedCars] = useState<AppCar[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -125,18 +127,20 @@ const Home: React.FC = () => {
       </section>
 
       {/* CTA Section */}
-      <section className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="relative overflow-hidden rounded-[3rem] bg-brand-card border border-brand-border px-8 py-16 text-center text-brand-text sm:px-16 shadow-2xl">
-          <div className="absolute inset-0 bg-brand-primary opacity-[0.03]"></div>
-          <div className="relative z-10 flex flex-col items-center">
-            <h2 className="mb-4 text-4xl font-black">¿Listo para vender tu auto?</h2>
-            <p className="mb-10 max-w-xl text-lg text-brand-muted">Únete a nuestra red de vendedores confiables y obtén el mejor valor por tu vehículo hoy mismo.</p>
-            <Link to="/login" className="rounded-2xl bg-brand-primary px-10 py-4 font-black uppercase tracking-widest text-white shadow-xl shadow-brand-primary/20 transition-all hover:bg-blue-500">
-              Portal de Vendedores
-            </Link>
+      {profile?.role === 'seller' && (
+        <section className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="relative overflow-hidden rounded-[3rem] bg-brand-card border border-brand-border px-8 py-16 text-center text-brand-text sm:px-16 shadow-2xl">
+            <div className="absolute inset-0 bg-brand-primary opacity-[0.03]"></div>
+            <div className="relative z-10 flex flex-col items-center">
+              <h2 className="mb-4 text-4xl font-black">¿Listo para vender tu auto?</h2>
+              <p className="mb-10 max-w-xl text-lg text-brand-muted">Únete a nuestra red de vendedores confiables y obtén el mejor valor por tu vehículo hoy mismo.</p>
+              <Link to="/dashboard" className="rounded-2xl bg-brand-primary px-10 py-4 font-black uppercase tracking-widest text-white shadow-xl shadow-brand-primary/20 transition-all hover:bg-blue-500">
+                Portal de Vendedores
+              </Link>
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
     </div>
   );
 };

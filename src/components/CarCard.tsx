@@ -76,17 +76,19 @@ export const CarCard: React.FC<CarCardProps> = ({ car }) => {
         )}
 
         {/* Favorite heart icon */}
-        <button
-          onClick={handleToggleFav}
-          className={`absolute top-4 right-4 z-10 flex h-9 w-9 items-center justify-center rounded-full transition-all active:scale-90 shadow-md ${
-            isFav 
-              ? 'bg-red-500 text-white hover:bg-red-600' 
-              : 'bg-brand-card/90 text-brand-muted hover:text-red-500'
-          }`}
-          title={isFav ? "Quitar de favoritos" : "Añadir a mi lista personalizada"}
-        >
-          <Heart size={16} fill={isFav ? "currentColor" : "none"} />
-        </button>
+        {user && (
+          <button
+            onClick={handleToggleFav}
+            className={`absolute top-4 right-4 z-10 flex h-9 w-9 items-center justify-center rounded-full transition-all active:scale-90 shadow-md ${
+              isFav 
+                ? 'bg-red-500 text-white hover:bg-red-600' 
+                : 'bg-brand-card/90 text-brand-muted hover:text-red-500'
+            }`}
+            title={isFav ? "Quitar de favoritos" : "Añadir a mi lista personalizada"}
+          >
+            <Heart size={16} fill={isFav ? "currentColor" : "none"} />
+          </button>
+        )}
       </div>
 
       <div className="p-5">

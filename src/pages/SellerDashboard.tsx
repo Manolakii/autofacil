@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { collection, query, where, getDocs, addDoc, updateDoc, deleteDoc, doc, serverTimestamp } from 'firebase/firestore';
+import { collection, query, where, getDocs, addDoc, updateDoc, deleteDoc, doc, getDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { AppCar } from '../types';
 import { useAuth } from '../components/AuthProvider';
-import { Plus, Edit2, Trash2, LayoutDashboard, Car, FileText, Calendar, ShieldCheck, Search, MessageSquare, TrendingUp, AlertCircle, X } from 'lucide-react';
+import { Plus, Edit2, Trash2, LayoutDashboard, Car, FileText, Calendar, ShieldCheck, Search, MessageSquare, TrendingUp, AlertCircle, X, CheckCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 const SellerDashboard: React.FC = () => {
@@ -12,6 +12,11 @@ const SellerDashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingCar, setEditingCar] = useState<AppCar | null>(null);
+  
+  // Tabs State
+  const [activeMainTab, setActiveMainTab] = useState<'inventory' | 'reservations'>('inventory');
+  const [reservations, setReservations] = useState<any[]>([]);
+  const [loadingReservations, setLoadingReservations] = useState(false);
 
   // Form State
   const [brand, setBrand] = useState('');
@@ -26,22 +31,127 @@ const SellerDashboard: React.FC = () => {
   const [suggestedPrice, setSuggestedPrice] = useState<number | null>(null);
 
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
 
   useEffect(() => {
-    const fetchSellerCars = async () => {
-      if (!user) return;
-      try {
-        const q = query(collection(db, 'cars'), where('sellerId', '==', user.uid));
-        const snap = await getDocs(q);
-        setCars(snap.docs.map(d => ({ id: d.id, ...d.data() } as AppCar)));
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    };
+    if (toast) {
+      const timer = setTimeout(() => {
+        setToast(null);
+      }, 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [toast]);
+
+  const fetchSellerCars = async () => {
+    if (!user) return;
+    try {
+      const q = query(collection(db, 'cars'), where('sellerId', '==', user.uid));
+      const snap = await getDocs(q);
+      setCars(snap.docs.map(d => ({ id: d.id, ...d.data() } as AppCar)));
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     fetchSellerCars();
   }, [user]);
+
+  // Load reservations for seller cars
+  useEffect(() => {
+    const fetchReservationsForCars = async () => {
+      if (cars.length === 0) {
+        setReservations([]);
+        return;
+      }
+      setLoadingReservations(true);
+      try {
+        const allRes: any[] = [];
+        for (const c of cars) {
+          const resRef = collection(db, 'cars', c.id, 'reservations');
+          const resSnap = await getDocs(resRef);
+          for (const d of resSnap.docs) {
+            const data = d.data();
+            let clientData = { username: 'Cliente', email: '' };
+            try {
+              const uDoc = await getDoc(doc(db, 'users', data.clientId));
+              if (uDoc.exists()) {
+                clientData = uDoc.data() as any;
+              }
+            } catch (uErr) {
+              console.warn("Error fetching user data", data.clientId, uErr);
+            }
+            allRes.push({
+              id: d.id,
+              carId: c.id,
+              ...data,
+              clientUsername: clientData.username,
+              clientEmail: clientData.email,
+              car: c
+            });
+          }
+        }
+        // Sort by date descending
+        allRes.sort((a, b) => {
+          const ta = a.createdAt?.seconds || 0;
+          const tb = b.createdAt?.seconds || 0;
+          return tb - ta;
+        });
+        setReservations(allRes);
+      } catch (err) {
+        console.error("Error fetching reservation list:", err);
+      } finally {
+        setLoadingReservations(false);
+      }
+    };
+    fetchReservationsForCars();
+  }, [cars]);
+
+  // Complete a reservation
+  const handleCompleteReservation = async (res: any) => {
+    try {
+      const resDocRef = doc(db, 'cars', res.carId, 'reservations', res.id);
+      await updateDoc(resDocRef, {
+        status: 'completed'
+      });
+
+      const carRef = doc(db, 'cars', res.carId);
+      await updateDoc(carRef, {
+        status: 'sold',
+        updatedAt: serverTimestamp()
+      });
+
+      setToast({ message: "¡Venta completada con éxito! El vehículo ahora está marcado como VENDIDO.", type: "success" });
+      await fetchSellerCars();
+    } catch (error) {
+      console.error("Error completing sale:", error);
+      setToast({ message: "No se pudo completar la venta. Verifica tu conexión.", type: "error" });
+    }
+  };
+
+  // Cancel reservation
+  const handleCancelReservation = async (res: any) => {
+    try {
+      const resDocRef = doc(db, 'cars', res.carId, 'reservations', res.id);
+      await updateDoc(resDocRef, {
+        status: 'cancelled'
+      });
+
+      const carRef = doc(db, 'cars', res.carId);
+      await updateDoc(carRef, {
+        status: 'available',
+        updatedAt: serverTimestamp()
+      });
+
+      setToast({ message: "Reserva cancelada con éxito. El auto vuelve a estar disponible.", type: "success" });
+      await fetchSellerCars();
+    } catch (error) {
+      console.error("Error cancelling reservation:", error);
+      setToast({ message: "No se pudo cancelar la reserva.", type: "error" });
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -94,21 +204,48 @@ const SellerDashboard: React.FC = () => {
     const files = e.target.files;
     if (!files) return;
 
-    const validFiles: string[] = [];
     for (let i = 0; i < files.length; i++) {
-      if (files[i].size > 20 * 1024 * 1024) {
-        alert(`El archivo ${files[i].name} supera los 20MB permitidos.`);
-        continue;
-      }
-      // For the demo, we'll use URL.createObjectURL to simulate upload
-      validFiles.push(URL.createObjectURL(files[i]));
+      const file = files[i];
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const img = new Image();
+        img.onload = () => {
+          // Resize the image to maximum 800px width/height and compress to 0.7 quality JPEG
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+          const max_size = 800;
+
+          if (width > height) {
+            if (width > max_size) {
+              height *= max_size / width;
+              width = max_size;
+            }
+          } else {
+            if (height > max_size) {
+              width *= max_size / height;
+              height = max_size;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(img, 0, 0, width, height);
+            const compressedBase64 = canvas.toDataURL('image/jpeg', 0.7);
+            setImages(prev => [...prev, compressedBase64]);
+          }
+        };
+        img.src = event.target?.result as string;
+      };
+      reader.readAsDataURL(file);
     }
-    setImages(prev => [...prev, ...validFiles]);
   };
 
   const calculateSuggestedPrice = () => {
     if (!price || !year || !mileage) {
-      alert("Por favor ingresa precio, año y kilometraje base para la tasación.");
+      setToast({ message: "Por favor ingresa precio, año y kilometraje base para la tasación.", type: "error" });
       return;
     }
     setAppraising(true);
@@ -123,6 +260,7 @@ const SellerDashboard: React.FC = () => {
       const suggested = price * multiplier;
       setSuggestedPrice(Math.round(suggested));
       setAppraising(false);
+      setToast({ message: `Tasación calculada con éxito: $${Math.round(suggested).toLocaleString()} USD`, type: "success" });
     }, 1500);
   };
 
@@ -135,16 +273,18 @@ const SellerDashboard: React.FC = () => {
     setMileage(car.mileage);
     setCondition(car.condition);
     setCategory(car.category || 'sedan');
+    setImages(car.images || []);
     setShowForm(true);
   };
 
   const handleDelete = async (id: string) => {
-    if (!window.confirm("Are you sure?")) return;
     try {
       await deleteDoc(doc(db, 'cars', id));
       setCars(prev => prev.filter(c => c.id !== id));
+      setToast({ message: "Vehículo eliminado con éxito.", type: "success" });
     } catch (err) {
       console.error(err);
+      setToast({ message: "No se pudo eliminar el vehículo.", type: "error" });
     }
   };
 
@@ -180,22 +320,28 @@ const SellerDashboard: React.FC = () => {
             </div>
           </div>
           <nav className="flex-1 px-4 space-y-2">
-            <div className="bg-brand-primary/10 text-brand-primary p-3 rounded-xl flex items-center gap-3 font-bold cursor-pointer border border-brand-primary/20">
-              <LayoutDashboard size={20} />
-              Panel de Control
-            </div>
-            <div className="hover:bg-brand-border/50 text-brand-muted p-3 rounded-xl flex items-center gap-3 transition-colors cursor-pointer group">
-              <Car size={20} className="group-hover:text-brand-primary" />
+            <button
+              onClick={() => setActiveMainTab('inventory')}
+              className={`w-full text-left p-3 rounded-xl flex items-center gap-3 font-bold transition-all border outline-none cursor-pointer ${
+                activeMainTab === 'inventory'
+                  ? 'bg-brand-primary/10 text-brand-primary border-brand-primary/20 font-black'
+                  : 'hover:bg-brand-border/50 text-brand-muted border-transparent bg-transparent'
+              }`}
+            >
+              <Car size={20} />
               Mis Vehículos
-            </div>
-            <div className="hover:bg-brand-border/50 text-brand-muted p-3 rounded-xl flex items-center gap-3 transition-colors cursor-pointer group">
-              <FileText size={20} className="group-hover:text-brand-primary" />
-              Tasaciones (Rf-17)
-            </div>
-            <div className="hover:bg-brand-border/50 text-brand-muted p-3 rounded-xl flex items-center gap-3 transition-colors cursor-pointer group">
-              <Calendar size={20} className="group-hover:text-brand-primary" />
-              Reservas (Rf-13)
-            </div>
+            </button>
+            <button
+              onClick={() => setActiveMainTab('reservations')}
+              className={`w-full text-left p-3 rounded-xl flex items-center gap-3 font-bold transition-all border outline-none cursor-pointer ${
+                activeMainTab === 'reservations'
+                  ? 'bg-brand-primary/10 text-brand-primary border-brand-primary/20 font-black'
+                  : 'hover:bg-brand-border/50 text-brand-muted border-transparent bg-transparent'
+              }`}
+            >
+              <Calendar size={20} />
+              Reservas Recibidas
+            </button>
           </nav>
           <div className="p-6 mt-auto">
             <div className="bg-brand-border/30 rounded-2xl p-4 border border-brand-border shadow-inner">
@@ -234,18 +380,28 @@ const SellerDashboard: React.FC = () => {
                   </button>
                 </div>
                 <nav className="flex-1 px-4 py-6 space-y-2">
-                  <div onClick={() => setShowMobileSidebar(false)} className="bg-brand-primary/10 text-brand-primary p-4 rounded-xl flex items-center gap-4 font-bold border border-brand-primary/20">
-                    <LayoutDashboard size={24} />
-                    Panel de Control
-                  </div>
-                  <div onClick={() => setShowMobileSidebar(false)} className="text-brand-muted p-4 rounded-xl flex items-center gap-4 hover:bg-brand-border/50">
+                  <button 
+                    onClick={() => { setActiveMainTab('inventory'); setShowMobileSidebar(false); }}
+                    className={`w-full text-left p-4 rounded-xl flex items-center gap-4 font-bold border transition-all ${
+                      activeMainTab === 'inventory' 
+                        ? 'bg-brand-primary/10 text-brand-primary border-brand-primary/20' 
+                        : 'text-brand-muted hover:bg-brand-border/50 border-transparent bg-transparent'
+                    }`}
+                  >
                     <Car size={24} />
                     Mis Vehículos
-                  </div>
-                  <div onClick={() => setShowMobileSidebar(false)} className="text-brand-muted p-4 rounded-xl flex items-center gap-4 hover:bg-brand-border/50">
-                    <TrendingUp size={24} />
-                    Tasaciones
-                  </div>
+                  </button>
+                  <button 
+                    onClick={() => { setActiveMainTab('reservations'); setShowMobileSidebar(false); }}
+                    className={`w-full text-left p-4 rounded-xl flex items-center gap-4 font-bold border transition-all ${
+                      activeMainTab === 'reservations' 
+                        ? 'bg-brand-primary/10 text-brand-primary border-brand-primary/20' 
+                        : 'text-brand-muted hover:bg-brand-border/50 border-transparent bg-transparent'
+                    }`}
+                  >
+                    <Calendar size={24} />
+                    Reservas Recibidas
+                  </button>
                 </nav>
              </motion.aside>
            </>
@@ -299,59 +455,145 @@ const SellerDashboard: React.FC = () => {
 
             {/* Bottom Grid */}
             <div className="grid grid-cols-1 xl:grid-cols-3 gap-8 items-start">
-              {/* Inventory Table Area */}
-              <div className="xl:col-span-2 bg-brand-card border border-brand-border rounded-[2rem] shadow-xl overflow-hidden flex flex-col">
-                <div className="p-6 border-b border-brand-border flex justify-between items-center bg-brand-card/50">
-                  <h3 className="font-black text-xl tracking-tight">Mis Vehículos Recientes</h3>
-                  <button 
-                    onClick={() => setShowForm(true)}
-                    className="bg-brand-primary hover:bg-blue-500 px-5 py-2.5 rounded-xl text-sm font-bold text-white shadow-lg shadow-brand-primary/30 transition-all active:scale-95"
-                  >
-                    + Publicar Auto (Rf-05)
-                  </button>
-                </div>
-
-                <div className="p-6">
-                  {cars.length === 0 ? (
-                    <div className="text-center py-20 text-brand-muted italic">No hay vehículos publicados aún.</div>
-                  ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                      {cars.map(car => (
-                        <div key={car.id} className="group bg-brand-bg border border-brand-border rounded-[2rem] overflow-hidden hover:border-brand-primary/50 transition-all hover:shadow-xl hover:shadow-brand-primary/5">
-                          <div className="aspect-video w-full overflow-hidden relative">
-                            <img src={car.images[0]} className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-500" referrerPolicy="no-referrer" />
-                            <div className="absolute top-4 right-4 bg-brand-primary px-3 py-1.5 rounded-xl text-[10px] font-black text-white shadow-lg uppercase tracking-widest">
-                               ${car.price.toLocaleString()}
-                            </div>
-                          </div>
-                          <div className="p-6">
-                            <div className="flex justify-between items-start mb-4">
-                              <div>
-                                <h4 className="font-black text-brand-text">{car.brand} {car.model}</h4>
-                                <p className="text-[10px] font-bold text-brand-muted uppercase tracking-widest mt-1">{car.year} • {car.mileage.toLocaleString()} km</p>
-                              </div>
-                              <span className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest border ${
-                                car.status === 'available' 
-                                  ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' 
-                                  : 'bg-amber-500/10 text-amber-500 border-amber-500/20'
-                              }`}>
-                                {car.status === 'available' ? 'Disponible' : 'Reservado'}
-                              </span>
-                            </div>
-                            <div className="flex gap-2 pt-4 border-t border-brand-border">
-                              <button onClick={() => handleEdit(car)} className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-brand-primary/10 text-brand-primary text-xs font-black uppercase tracking-widest hover:bg-brand-primary hover:text-white transition-all">
-                                <Edit2 size={14} /> Editar
-                              </button>
-                              <button onClick={() => handleDelete(car.id)} className="px-4 py-3 rounded-xl bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white transition-all">
-                                <Trash2 size={16} />
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
+              <div className="xl:col-span-2">
+                {activeMainTab === 'inventory' ? (
+                  <div className="bg-brand-card border border-brand-border rounded-[2rem] shadow-xl overflow-hidden flex flex-col">
+                    <div className="p-6 border-b border-brand-border flex justify-between items-center bg-brand-card/50">
+                      <h3 className="font-black text-xl tracking-tight">Mis Vehículos Recientes</h3>
+                      <button 
+                        onClick={() => setShowForm(true)}
+                        className="bg-brand-primary hover:bg-blue-500 px-5 py-2.5 rounded-xl text-sm font-bold text-white shadow-lg shadow-brand-primary/30 transition-all active:scale-95 text-xs font-black uppercase tracking-widest cursor-pointer"
+                      >
+                        + Publicar Auto (Rf-05)
+                      </button>
                     </div>
-                  )}
-                </div>
+
+                    <div className="p-6">
+                      {cars.length === 0 ? (
+                        <div className="text-center py-20 text-brand-muted italic">No hay vehículos publicados aún.</div>
+                      ) : (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                          {cars.map(car => (
+                            <div key={car.id} className="group bg-brand-bg border border-brand-border rounded-[2rem] overflow-hidden hover:border-brand-primary/50 transition-all hover:shadow-xl hover:shadow-brand-primary/5">
+                              <div className="aspect-video w-full overflow-hidden relative">
+                                <img src={car.images[0]} className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-500" referrerPolicy="no-referrer" />
+                                <div className="absolute top-4 right-4 bg-brand-primary px-3 py-1.5 rounded-xl text-[10px] font-black text-white shadow-lg uppercase tracking-widest">
+                                   ${car.price.toLocaleString()}
+                                </div>
+                              </div>
+                              <div className="p-6">
+                                <div className="flex justify-between items-start mb-4">
+                                  <div>
+                                    <h4 className="font-black text-brand-text">{car.brand} {car.model}</h4>
+                                    <p className="text-[10px] font-bold text-brand-muted uppercase tracking-widest mt-1">{car.year} • {car.mileage.toLocaleString()} km</p>
+                                  </div>
+                                  <span className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest border ${
+                                    car.status === 'available' 
+                                      ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' 
+                                      : car.status === 'reserved'
+                                        ? 'bg-amber-500/10 text-amber-500 border-amber-500/20'
+                                        : 'bg-zinc-500/10 text-zinc-400 border-zinc-500/20'
+                                  }`}>
+                                    {car.status === 'available' ? 'Disponible' : car.status === 'reserved' ? 'Reservado' : 'Vendido'}
+                                  </span>
+                                </div>
+                                <div className="flex gap-2 pt-4 border-t border-brand-border">
+                                  <button onClick={() => handleEdit(car)} className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-brand-primary/10 text-brand-primary text-xs font-black uppercase tracking-widest hover:bg-brand-primary hover:text-white transition-all cursor-pointer">
+                                    <Edit2 size={14} /> Editar
+                                  </button>
+                                  <button onClick={() => handleDelete(car.id)} className="px-4 py-3 rounded-xl bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white transition-all cursor-pointer">
+                                    <Trash2 size={16} />
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="bg-brand-card border border-brand-border rounded-[2rem] shadow-xl overflow-hidden flex flex-col animate-fade-in">
+                    <div className="p-6 border-b border-brand-border bg-brand-card/50">
+                      <h3 className="font-black text-xl tracking-tight">Reservas de Clientes (Rf-13)</h3>
+                      <p className="text-xs text-brand-muted font-bold uppercase tracking-widest mt-1">Sigue el estatus de visitas agendadas por interesados</p>
+                    </div>
+
+                    <div className="p-6">
+                      {loadingReservations ? (
+                        <div className="text-center py-20 text-brand-muted animate-pulse font-black uppercase tracking-widest text-xs">Cargando reservas...</div>
+                      ) : reservations.length === 0 ? (
+                        <div className="text-center py-20 text-brand-muted italic">No has recibido reservas todavía para tus vehículos.</div>
+                      ) : (
+                        <div className="space-y-6">
+                          {reservations.map((res) => (
+                            <div key={res.id} className="p-6 rounded-[2rem] bg-brand-bg border border-brand-border flex flex-col md:flex-row md:items-center justify-between gap-6 hover:border-brand-primary/45 transition-colors">
+                              <div className="space-y-3 flex-1">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <span className="text-[10px] font-black uppercase tracking-widest bg-brand-primary/10 text-brand-primary px-3 py-1 rounded-full border border-brand-primary/20">
+                                    Reserva #{res.id.slice(0, 6).toUpperCase()}
+                                  </span>
+                                  <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest border ${
+                                    res.status === 'completed'
+                                      ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
+                                      : res.status === 'cancelled'
+                                        ? 'bg-zinc-500/15 text-zinc-400 border-zinc-500/30'
+                                        : res.status === 'expired'
+                                          ? 'bg-red-500/15 text-red-400 border-red-500/30'
+                                          : 'bg-amber-500/15 text-amber-400 border-amber-500/30'
+                                  }`}>
+                                    {res.status === 'completed' ? 'Venta Concretada' : res.status === 'cancelled' ? 'Cancelado' : res.status === 'expired' ? 'Expirado' : 'Activo'}
+                                  </span>
+                                </div>
+
+                                <div className="flex items-center gap-4">
+                                  {res.car?.images && (
+                                    <img src={res.car.images[0]} className="w-16 h-12 rounded-xl object-cover border border-brand-border shrink-0" referrerPolicy="no-referrer" />
+                                  )}
+                                  <div>
+                                    <h4 className="font-black text-brand-text text-sm uppercase italic">{res.car?.brand} {res.car?.model}</h4>
+                                    <p className="text-[10px] text-brand-muted font-bold">Año {res.car?.year} • Precio: ${res.car?.price?.toLocaleString()}</p>
+                                  </div>
+                                </div>
+
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-2 gap-x-6 text-xs text-brand-muted pt-3 border-t border-brand-border/40">
+                                  <div>
+                                    <p className="text-[8px] font-black uppercase tracking-widest text-brand-muted/70 mb-0.5">Comprador</p>
+                                    <p className="font-bold text-brand-text text-sm">{res.clientUsername}</p>
+                                    <p className="text-[10px]">{res.clientEmail}</p>
+                                  </div>
+                                  <div>
+                                    <p className="text-[8px] font-black uppercase tracking-widest text-brand-muted/70 mb-0.5">Cita Agendada</p>
+                                    <p className="font-bold text-amber-400 flex items-center gap-1.5">
+                                      <Calendar size={13} /> {res.visitDate} a las {res.visitTime} hs
+                                    </p>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {res.status === 'active' && (
+                                <div className="flex md:flex-col gap-2 shrink-0 justify-end w-full md:w-auto">
+                                  <button 
+                                    onClick={() => handleCompleteReservation(res)}
+                                    className="flex-grow flex items-center justify-center gap-1.5 px-4 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs uppercase tracking-widest shadow-lg shadow-emerald-600/10 cursor-pointer"
+                                  >
+                                    <CheckCircle size={14} /> Concretar Venta
+                                  </button>
+                                  <button 
+                                    onClick={() => handleCancelReservation(res)}
+                                    className="flex-grow flex items-center justify-center gap-1.5 px-4 py-3 rounded-xl border border-red-500/25 hover:bg-red-500 hover:text-white text-red-500 font-black text-xs uppercase tracking-widest transition-all cursor-pointer"
+                                  >
+                                    <X size={14} /> Cancelar Cita
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Sidebar Widgets Area */}
@@ -541,6 +783,23 @@ const SellerDashboard: React.FC = () => {
            </div>
          )}
        </AnimatePresence>
+
+       {toast && (
+         <motion.div 
+           initial={{ opacity: 0, y: 50, scale: 0.95 }}
+           animate={{ opacity: 1, y: 0, scale: 1 }}
+           exit={{ opacity: 0, y: 50, scale: 0.95 }}
+           className={`fixed bottom-6 right-6 z-[9999] flex items-center gap-3 px-5 py-4 rounded-2xl border shadow-2xl ${
+             toast.type === 'success' 
+               ? 'bg-emerald-950/90 border-emerald-500/30 text-emerald-400' 
+               : toast.type === 'error'
+               ? 'bg-red-950/90 border-red-500/30 text-red-500'
+               : 'bg-brand-card/90 border-brand-border text-brand-text'
+           }`}
+         >
+           <span className="text-xs font-semibold tracking-wide">{toast.message}</span>
+         </motion.div>
+       )}
     </div>
   );
 };

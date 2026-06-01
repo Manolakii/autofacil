@@ -76,7 +76,7 @@ service cloud.firestore {
       allow create: if isSignedIn() && isActive() && isValidCar(incoming());
       allow update: if isSignedIn() && isActive() && (
         isAdmin() ||
-        (existing().sellerId == request.auth.uid && isValidCar(incoming())) ||
+        existing().sellerId == request.auth.uid ||
         // State update by Client (Reservation Create)
         (incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt']) &&
          existing().status == "available" &&
@@ -94,7 +94,8 @@ service cloud.firestore {
                         get(/databases/$(database)/documents/cars/$(carId)).data.status == "available";
         allow update: if isSignedIn() && (
           isAdmin() || 
-          (resource.data.clientId == request.auth.uid && incoming().diff(existing()).affectedKeys().hasOnly(['status']) && incoming().status in ['cancelled', 'completed'])
+          resource.data.clientId == request.auth.uid ||
+          get(/databases/$(database)/documents/cars/$(carId)).data.sellerId == request.auth.uid
         );
         allow delete: if isSignedIn() && (isAdmin() || resource.data.clientId == request.auth.uid || get(/databases/$(database)/documents/cars/$(carId)).data.sellerId == request.auth.uid);
       }

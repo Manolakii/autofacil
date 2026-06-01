@@ -131,114 +131,103 @@ export const Navbar: React.FC = () => {
             <Link to="/models" className="text-sm font-black text-brand-muted hover:text-brand-primary uppercase tracking-widest transition-colors">Modelos</Link>
             
             {/* Seccion Favorito */}
-            <div className="relative">
-              <button 
-                onClick={() => setIsFavDropdownOpen(!isFavDropdownOpen)}
-                className="text-sm font-black text-brand-muted hover:text-brand-primary uppercase tracking-widest transition-colors flex items-center gap-1.5 focus:outline-none cursor-pointer"
-              >
-                <Heart size={15} className={`text-red-500 transition-transform ${totalItems > 0 ? 'fill-red-500 scale-105 animate-pulse' : ''}`} />
-                <span>Favorito</span>
-                {totalItems > 0 && (
-                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[9px] font-black text-white">
-                    {totalItems}
-                  </span>
-                )}
-                <ChevronDown size={14} className={`transition-transform duration-200 ${isFavDropdownOpen ? 'rotate-180' : ''}`} />
-              </button>
+            {user && (
+              <div className="relative">
+                <button 
+                  onClick={() => setIsFavDropdownOpen(!isFavDropdownOpen)}
+                  className="text-sm font-black text-brand-muted hover:text-brand-primary uppercase tracking-widest transition-colors flex items-center gap-1.5 focus:outline-none cursor-pointer"
+                >
+                  <Heart size={15} className={`text-red-500 transition-transform ${totalItems > 0 ? 'fill-red-500 scale-105 animate-pulse' : ''}`} />
+                  <span>Favorito</span>
+                  {totalItems > 0 && (
+                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[9px] font-black text-white">
+                      {totalItems}
+                    </span>
+                  )}
+                  <ChevronDown size={14} className={`transition-transform duration-200 ${isFavDropdownOpen ? 'rotate-180' : ''}`} />
+                </button>
 
-              {/* Favorites & Reservations Dropdown overlay */}
-              <AnimatePresence>
-                {isFavDropdownOpen && (
-                  <>
-                    <div className="fixed inset-0 z-30" onClick={() => setIsFavDropdownOpen(false)} />
-                    <motion.div
-                      initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                      className="absolute left-0 mt-3 z-40 w-80 rounded-2xl border border-brand-border bg-brand-card p-4 shadow-2xl"
-                    >
-                      <div className="flex items-center justify-between border-b border-brand-border pb-3 mb-3">
-                        <span className="text-xs font-black uppercase tracking-wider text-brand-text flex items-center gap-1.5 italic">
-                          <Heart size={14} className="text-red-500 fill-red-500" />
-                          Favorito
-                        </span>
-                        <span className="text-[10px] font-black text-brand-muted uppercase">
-                          {totalItems} ítems
-                        </span>
-                      </div>
+                {/* Favorites & Reservations Dropdown overlay */}
+                <AnimatePresence>
+                  {isFavDropdownOpen && (
+                    <>
+                      <div className="fixed inset-0 z-30" onClick={() => setIsFavDropdownOpen(false)} />
+                      <motion.div
+                        initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                        className="absolute left-0 mt-3 z-40 w-80 rounded-2xl border border-brand-border bg-brand-card p-4 shadow-2xl"
+                      >
+                        <div className="flex items-center justify-between border-b border-brand-border pb-3 mb-3">
+                          <span className="text-xs font-black uppercase tracking-wider text-brand-text flex items-center gap-1.5 italic">
+                            <Heart size={14} className="text-red-500 fill-red-500" />
+                            Favorito
+                          </span>
+                          <span className="text-[10px] font-black text-brand-muted uppercase">
+                            {totalItems} ítems
+                          </span>
+                        </div>
 
-                      <div className="max-h-64 overflow-y-auto space-y-4 pr-1 scrollbar-hide">
-                        {!user ? (
-                          <div className="py-6 text-center">
-                            <p className="text-xs font-black text-brand-muted uppercase mb-3">Inicia sesión para usar favoritos</p>
-                            <Link 
-                              to="/login"
-                              onClick={() => setIsFavDropdownOpen(false)}
-                              className="inline-block rounded-xl bg-brand-primary px-4 py-2.5 text-xs font-black uppercase tracking-wider text-white hover:bg-blue-500 transition-all shadow-lg shadow-brand-primary/10"
-                            >
-                              Iniciar Sesión
-                            </Link>
-                          </div>
-                        ) : totalItems === 0 ? (
-                          <div className="py-8 text-center text-brand-muted">
-                            <p className="text-xs font-bold uppercase">No tienes guardados ni reservas</p>
-                            <p className="text-[9px] font-black uppercase tracking-wider mt-1.5">Marca vehículos con ♡ para tenerlos a mano</p>
-                          </div>
-                        ) : (
-                          <>
-                            {/* Favorites List */}
-                            {favoritesList.length > 0 && (
-                              <div className="space-y-2">
-                                <h4 className="text-[9px] font-black uppercase tracking-widest text-brand-muted border-b border-brand-border/40 pb-1 italic">Tus Favoritos ({favoritesList.length})</h4>
-                                {favoritesList.map(car => (
-                                  <Link 
-                                    key={car.id} 
-                                    to={`/cars/${car.id}`}
-                                    onClick={() => setIsFavDropdownOpen(false)}
-                                    className="flex items-center gap-3 p-2 rounded-xl bg-brand-bg/40 hover:bg-brand-primary/10 border border-brand-border hover:border-brand-primary/20 transition-all group"
-                                  >
-                                    <img src={car.images && car.images[0] ? car.images[0] : 'https://images.unsplash.com/photo-1494976388531-d1058494cdd8?auto=format&fit=crop&q=80&w=800'} alt={car.model} className="h-10 w-14 rounded-lg object-cover" referrerPolicy="no-referrer" />
-                                    <div className="flex-1 min-w-0">
-                                      <p className="text-xs font-black text-brand-text truncate uppercase italic group-hover:text-brand-primary">{car.brand} {car.model}</p>
-                                      <p className="text-[10px] font-bold text-brand-muted">${car.price?.toLocaleString()} USD</p>
-                                    </div>
-                                  </Link>
-                                ))}
-                              </div>
-                            )}
+                        <div className="max-h-64 overflow-y-auto space-y-4 pr-1 scrollbar-hide">
+                          {totalItems === 0 ? (
+                            <div className="py-8 text-center text-brand-muted">
+                              <p className="text-xs font-bold uppercase">No tienes guardados ni reservas</p>
+                              <p className="text-[9px] font-black uppercase tracking-wider mt-1.5">Marca vehículos con ♡ para tenerlos a mano</p>
+                            </div>
+                          ) : (
+                            <>
+                              {/* Favorites List */}
+                              {favoritesList.length > 0 && (
+                                <div className="space-y-2">
+                                  <h4 className="text-[9px] font-black uppercase tracking-widest text-brand-muted border-b border-brand-border/40 pb-1 italic">Tus Favoritos ({favoritesList.length})</h4>
+                                  {favoritesList.map(car => (
+                                    <Link 
+                                      key={car.id} 
+                                      to={`/cars/${car.id}`}
+                                      onClick={() => setIsFavDropdownOpen(false)}
+                                      className="flex items-center gap-3 p-2 rounded-xl bg-brand-bg/40 hover:bg-brand-primary/10 border border-brand-border hover:border-brand-primary/20 transition-all group"
+                                    >
+                                      <img src={car.images && car.images[0] ? car.images[0] : 'https://images.unsplash.com/photo-1494976388531-d1058494cdd8?auto=format&fit=crop&q=80&w=800'} alt={car.model} className="h-10 w-14 rounded-lg object-cover" referrerPolicy="no-referrer" />
+                                      <div className="flex-1 min-w-0">
+                                        <p className="text-xs font-black text-brand-text truncate uppercase italic group-hover:text-brand-primary">{car.brand} {car.model}</p>
+                                        <p className="text-[10px] font-bold text-brand-muted">${car.price?.toLocaleString()} USD</p>
+                                      </div>
+                                    </Link>
+                                  ))}
+                                </div>
+                              )}
 
-                            {/* Reservations List */}
-                            {reservationsList.length > 0 && (
-                              <div className="space-y-2 pt-2">
-                                <h4 className="text-[9px] font-black uppercase tracking-widest text-emerald-500 border-b border-brand-border/40 pb-1 italic">Tus Reservas ({reservationsList.length})</h4>
-                                {reservationsList.map(res => (
-                                  <Link 
-                                    key={res.id} 
-                                    to={`/cars/${res.carId}`}
-                                    onClick={() => setIsFavDropdownOpen(false)}
-                                    className="flex items-center gap-3 p-2 rounded-xl bg-emerald-500/5 hover:bg-emerald-500/10 border border-emerald-500/10 hover:border-emerald-500/20 transition-all group"
-                                  >
-                                    <img 
-                                      src={res.car?.images && res.car.images[0] ? res.car.images[0] : 'https://images.unsplash.com/photo-1494976388531-d1058494cdd8?auto=format&fit=crop&q=80&w=800'} 
-                                      alt={res.car?.model || "Vehículo"} 
-                                      className="h-10 w-14 rounded-lg object-cover" 
-                                      referrerPolicy="no-referrer" 
-                                    />
-                                    <div className="flex-1 min-w-0">
-                                      <p className="text-xs font-black text-brand-text truncate uppercase italic group-hover:text-emerald-500">
-                                        {res.car ? `${res.car.brand} ${res.car.model}` : "Vehículo"}
-                                      </p>
-                                      <span className="inline-block px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-500 text-[8px] font-black uppercase tracking-wide">Reserva Activa</span>
-                                    </div>
-                                  </Link>
-                                ))}
-                              </div>
-                            )}
-                          </>
-                        )}
-                      </div>
+                              {/* Reservations List */}
+                              {reservationsList.length > 0 && (
+                                <div className="space-y-2 pt-2">
+                                  <h4 className="text-[9px] font-black uppercase tracking-widest text-emerald-500 border-b border-brand-border/40 pb-1 italic">Tus Reservas ({reservationsList.length})</h4>
+                                  {reservationsList.map(res => (
+                                    <Link 
+                                      key={res.id} 
+                                      to={`/cars/${res.carId}`}
+                                      onClick={() => setIsFavDropdownOpen(false)}
+                                      className="flex items-center gap-3 p-2 rounded-xl bg-emerald-500/5 hover:bg-emerald-500/10 border border-emerald-500/10 hover:border-emerald-500/20 transition-all group"
+                                    >
+                                      <img 
+                                        src={res.car?.images && res.car.images[0] ? res.car.images[0] : 'https://images.unsplash.com/photo-1494976388531-d1058494cdd8?auto=format&fit=crop&q=80&w=800'} 
+                                        alt={res.car?.model || "Vehículo"} 
+                                        className="h-10 w-14 rounded-lg object-cover" 
+                                        referrerPolicy="no-referrer" 
+                                      />
+                                      <div className="flex-1 min-w-0">
+                                        <p className="text-xs font-black text-brand-text truncate uppercase italic group-hover:text-emerald-500">
+                                          {res.car ? `${res.car.brand} ${res.car.model}` : "Vehículo"}
+                                        </p>
+                                        <span className="inline-block px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-500 text-[8px] font-black uppercase tracking-wide">Reserva Activa</span>
+                                      </div>
+                                    </Link>
+                                  ))}
+                                </div>
+                              )}
+                            </>
+                          )}
+                        </div>
 
-                      {user && (
                         <div className="border-t border-brand-border mt-3 pt-3 flex gap-2">
                           <Link
                             to="/my-account?tab=favorites"
@@ -255,12 +244,12 @@ export const Navbar: React.FC = () => {
                             Ver Reservas
                           </Link>
                         </div>
-                      )}
-                    </motion.div>
-                  </>
-                )}
-              </AnimatePresence>
-            </div>
+                      </motion.div>
+                    </>
+                  )}
+                </AnimatePresence>
+              </div>
+            )}
           </div>
         </div>
 
@@ -326,19 +315,21 @@ export const Navbar: React.FC = () => {
               <Link to="/models" className="text-lg font-black uppercase italic tracking-wider text-brand-text" onClick={closeMenu}>Modelos</Link>
               
               {/* Favorito Link in Drawer */}
-              <Link 
-                to="/my-account?tab=favorites" 
-                className="text-lg font-black uppercase italic tracking-wider text-brand-text flex items-center gap-2" 
-                onClick={closeMenu}
-              >
-                <Heart size={20} className="text-red-500 fill-red-500" />
-                <span>Favorito</span>
-                {totalItems > 0 && (
-                  <span className="rounded-full bg-red-500 px-2 py-0.5 text-xs text-white">
-                    {totalItems}
-                  </span>
-                )}
-              </Link>
+              {user && (
+                <Link 
+                  to="/my-account?tab=favorites" 
+                  className="text-lg font-black uppercase italic tracking-wider text-brand-text flex items-center gap-2" 
+                  onClick={closeMenu}
+                >
+                  <Heart size={20} className="text-red-500 fill-red-500" />
+                  <span>Favorito</span>
+                  {totalItems > 0 && (
+                    <span className="rounded-full bg-red-500 px-2 py-0.5 text-xs text-white">
+                      {totalItems}
+                    </span>
+                  )}
+                </Link>
+              )}
 
               <hr className="border-brand-border" />
               {user ? (
